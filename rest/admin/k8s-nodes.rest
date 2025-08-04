@@ -1,0 +1,29 @@
+### Variables
+@baseUrl = http://localhost:3000/api
+@adminToken = {{admin_login.response.body.data.accessToken}}
+
+### Admin Login
+# @name admin_login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+### Get All Kubernetes Nodes
+GET {{baseUrl}}/admin/k8s/nodes
+Authorization: Bearer {{adminToken}}
+
+### Get Specific Kubernetes Node by Name
+GET {{baseUrl}}/admin/k8s/nodes/k3d-paas-dev-agent-0
+Authorization: Bearer {{adminToken}}
+
+### Get Specific Kubernetes Node by Name (Example node names)
+GET {{baseUrl}}/admin/k8s/nodes/node-1
+Authorization: Bearer {{adminToken}}
+
+### Get Non-existent Node (Should return 404)
+GET {{baseUrl}}/admin/k8s/nodes/non-existent-node
+Authorization: Bearer {{adminToken}}

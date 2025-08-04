@@ -97,8 +97,164 @@ const updateAvatar = async (req, res) => {
   }
 };
 
+// Admin functions
+const getAllUsers = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search, role } = req.query;
+
+    const users = await userService.getAllUsers({
+      page: parseInt(page),
+      limit: parseInt(limit),
+      search,
+      role,
+    });
+
+    sendResponse(res, StatusCodes.OK, users, "Users retrieved successfully");
+  } catch (error) {
+    logger.error("Get all users error:", error);
+    sendResponse(res, StatusCodes.INTERNAL_SERVER_ERROR, null);
+  }
+};
+
+const getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await userService.getProfileById(id);
+
+    if (!user) {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, "User not found");
+    }
+
+    sendResponse(res, StatusCodes.OK, { user }, "User retrieved successfully");
+  } catch (error) {
+    logger.error("Get user by ID error:", error);
+    sendResponse(res, StatusCodes.INTERNAL_SERVER_ERROR, null);
+  }
+};
+
+const updateUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, phone, role, avatar } = req.body;
+
+    const updatedUser = await userService.updateUserProfile(id, {
+      name,
+      phone,
+      role,
+      avatar,
+    });
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      { user: updatedUser },
+      "User updated successfully"
+    );
+  } catch (error) {
+    logger.error("Update user error:", error);
+
+    if (error.code === "P2025") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null);
+    }
+
+    if (error.message === "Phone number is already in use") {
+      return sendResponse(res, StatusCodes.CONFLICT, null, error.message);
+    }
+
+    sendResponse(res, StatusCodes.INTERNAL_SERVER_ERROR, null);
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await userService.deleteUser(id);
+
+    sendResponse(res, StatusCodes.OK, null, "User deleted successfully");
+  } catch (error) {
+    logger.error("Delete user error:", error);
+
+    if (error.code === "P2025") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null);
+    }
+
+    sendResponse(res, StatusCodes.INTERNAL_SERVER_ERROR, null);
+  }
+};
+
+const toggleUserStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    const updatedUser = await userService.toggleUserStatus(id, isActive);
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      { user: updatedUser },
+      `User ${isActive ? "activated" : "deactivated"} successfully`
+    );
+  } catch (error) {
+    logger.error("Toggle user status error:", error);
+
+    if (error.code === "P2025") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null);
+    }
+
+    sendResponse(res, StatusCodes.INTERNAL_SERVER_ERROR, null);
+  }
+};
+
+const createUser = async (req, res) => {
+  try {
+    const { name, email, phone, password, role, avatar } = req.body;
+
+    const newUser = await userService.createUser({
+      name,
+      email,
+      phone,
+      password,
+      role,
+      avatar,
+    });
+
+    sendResponse(
+      res,
+      StatusCodes.CREATED,
+      { user: newUser },
+      "User created successfully"
+    );
+  } catch (error) {
+    logger.error("Create user error:", error);
+
+    if (error.message === "User with this email already exists") {
+      return sendResponse(res, StatusCodes.CONFLICT, null, error.message);
+    }
+
+    if (error.message === "Phone number is already in use") {
+      return sendResponse(res, StatusCodes.CONFLICT, null, error.message);
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      ERROR_MESSAGES.INTERNAL_SERVER_ERROR
+    );
+  }
+};
+
 export default {
   getProfile,
   updateProfile,
   updateAvatar,
+  getAllUsers,
+  getUserById,
+  updateUser,
+  deleteUser,
+  toggleUserStatus,
+  createUser,
 };

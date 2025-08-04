@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import prisma from "../utils/prisma.js";
 
 const register = async (userData) => {
-  const { name, email, phone, password, role = "USER", avatar } = userData;
+  const { name, email, phone, password, avatar } = userData;
 
   // Check if user already exists
   const existingUser = await prisma.user.findUnique({
@@ -26,7 +26,6 @@ const register = async (userData) => {
       email,
       phone,
       password: hashedPassword,
-      role,
       avatar,
     },
     select: {
@@ -36,6 +35,7 @@ const register = async (userData) => {
       phone: true,
       role: true,
       avatar: true,
+      isActive: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -60,6 +60,11 @@ const login = async (email, password) => {
 
   if (!user) {
     throw new Error("Invalid email or password");
+  }
+
+  // Check if user is active
+  if (!user.isActive) {
+    throw new Error("Account is deactivated. Please contact administrator.");
   }
 
   // Verify password
@@ -93,6 +98,7 @@ const getUserById = async (userId) => {
       phone: true,
       role: true,
       avatar: true,
+      isActive: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -100,6 +106,11 @@ const getUserById = async (userId) => {
 
   if (!user) {
     throw new Error("User not found");
+  }
+
+  // Check if user is active
+  if (!user.isActive) {
+    throw new Error("Account is deactivated");
   }
 
   return user;
@@ -152,17 +163,17 @@ const revokeAllRefreshTokens = async (userId) => {
 
 const generateAccessToken = (userId) => {
   return jwt.sign({ userId, type: "access" }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
+    expiresIn: process.env.JWT_EXPIRES_IN || "15m",
   });
 };
 
 const generateRefreshToken = async (userId) => {
   const token = uuidv4();
   const expiresAt = new Date();
-  expiresAt.setDate(
-    expiresAt.getDate() +
-      (parseInt(process.env.JWT_REFRESH_EXPIRES_IN_DAYS) || 7)
-  );
+  // Parse refresh token expiration from env (e.g., "7d" -> 7 days)
+  const refreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
+  const days = parseInt(refreshExpiresIn.replace('d', '')) || 7;
+  expiresAt.setDate(expiresAt.getDate() + days);
 
   const refreshToken = await prisma.refreshToken.create({
     data: {

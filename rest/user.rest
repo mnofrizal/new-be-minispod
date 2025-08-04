@@ -14,11 +14,11 @@ Content-Type: application/json
 }
 
 ### Get User Profile
-GET {{baseUrl}}/users/profile
+GET {{baseUrl}}/user/profile
 Authorization: Bearer {{authToken}}
 
 ### Update User Profile
-PUT {{baseUrl}}/users/profile
+PUT {{baseUrl}}/user/profile
 Authorization: Bearer {{authToken}}
 Content-Type: application/json
 
@@ -29,7 +29,7 @@ Content-Type: application/json
 }
 
 ### Update User Avatar
-PATCH {{baseUrl}}/users/avatar
+PATCH {{baseUrl}}/user/avatar
 Authorization: Bearer {{authToken}}
 Content-Type: application/json
 
@@ -38,24 +38,24 @@ Content-Type: application/json
 }
 
 ### Get User Profile (Alternative)
-GET {{baseUrl}}/users/profile
+GET {{baseUrl}}/user/profile
 Authorization: Bearer {{authToken}}
 
 ### Error Cases
 
 ### Invalid Token
-GET {{baseUrl}}/users/profile
+GET {{baseUrl}}/user/profile
 Authorization: Bearer invalid_token
 
 ### Missing Fields
-PUT {{baseUrl}}/users/profile
+PUT {{baseUrl}}/user/profile
 Authorization: Bearer {{authToken}}
 Content-Type: application/json
 
 {}
 
 ### Invalid Data Types
-PUT {{baseUrl}}/users/profile
+PUT {{baseUrl}}/user/profile
 Authorization: Bearer {{authToken}}
 Content-Type: application/json
 

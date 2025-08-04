@@ -1,0 +1,114 @@
+### Variables
+@baseUrl = http://localhost:3000/api
+@adminToken = {{admin_login.response.body.data.accessToken}}
+@userId = {{get_all.response.body.data.users[0].id}}
+
+### Admin Login
+# @name admin_login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+### Create User (Admin Only)
+POST {{baseUrl}}/admin/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "New Admin User",
+  "email": "newadmin@minispod.com",
+  "phone": "+1234567898",
+  "password": "password123",
+  "role": "ADMINISTRATOR",
+  "avatar": "https://minispod.com/admin-avatar.jpg"
+}
+
+### Create Regular User (Admin Only)
+POST {{baseUrl}}/admin/users
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Regular User",
+  "email": "regularuser@minispod.com",
+  "phone": "+1234567897",
+  "password": "password123",
+  "role": "USER",
+  "avatar": "https://minispod.com/user-avatar.jpg"
+}
+
+### Get All Users (Admin Only)
+# @name get_all
+GET {{baseUrl}}/admin/users
+Authorization: Bearer {{adminToken}}
+
+### Get All Users with Pagination
+GET {{baseUrl}}/admin/users?page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### Get All Users with Search
+GET {{baseUrl}}/admin/users?search=john
+Authorization: Bearer {{adminToken}}
+
+### Get All Users by Role
+GET {{baseUrl}}/admin/users?role=USER
+Authorization: Bearer {{adminToken}}
+
+### Get All Users with All Filters
+GET {{baseUrl}}/admin/users?page=1&limit=5&search=doe&role=USER
+Authorization: Bearer {{adminToken}}
+
+### Get User by ID (Admin Only)
+GET {{baseUrl}}/admin/users/{{userId}}
+Authorization: Bearer {{adminToken}}
+
+### Update User (Admin Only)
+PUT {{baseUrl}}/admin/users/{{userId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "John Doe Updated",
+  "phone": "+1234567891",
+  "role": "MODERATOR",
+  "avatar": "https://minispod.com/new-avatar.jpg"
+}
+
+### Toggle User Status - Deactivate (Admin Only)
+PATCH {{baseUrl}}/admin/users/{{userId}}/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "isActive": true
+}
+
+### Toggle User Status - Activate (Admin Only)
+PATCH {{baseUrl}}/admin/users/{{userId}}/status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "isActive": true
+}
+
+### Delete User (Admin Only)
+DELETE {{baseUrl}}/admin/users/{{userId}}
+Authorization: Bearer {{adminToken}}
+
+### Create Test User for Management
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "email": "testuser@minispod.com",
+  "phone": "+1234567899",
+  "password": "password123",
+  "role": "USER",
+  "avatar": "https://minispod.com/test-avatar.jpg"
+}
