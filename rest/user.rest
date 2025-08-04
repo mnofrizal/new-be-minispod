@@ -4,7 +4,7 @@
 @baseUrl = http://localhost:3000/api
 
 ### Authentication Token (replace with actual token)
-@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWR3cjB1ZTgwMDAwbjZ4dzRzZ3duOHhmIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc1NDI5Mjg5MywiZXhwIjoxNzU0MjkzNzkzfQ.Fn-2OIfkZorD3eY_4GzFA2YVRlq70_H5pFhZbEi3MBI
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWR4NDV1OTYwMDAwdnY4c2IyNHpweWg3IiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc1NDMxMjY4OSwiZXhwIjoxNzU0MzEzNTg5fQ.9A3WMdih3bk1TCCGAmO0nplBSCB3kzt3Y8m59R7mPC8
 
 ### Get User Profile
 GET {{baseUrl}}/users/profile

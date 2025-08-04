@@ -1,10 +1,10 @@
-const express = require("express");
-const cors = require("cors");
-require("dotenv").config();
+import express from "express";
+import cors from "cors";
+import "dotenv/config";
 
 // Import routes
-const authRoutes = require("./routes/auth.routes");
-const userRoutes = require("./routes/user.routes");
+import authRoutes from "./routes/auth.routes.js";
+import userRoutes from "./routes/user.routes.js";
 
 const app = express();
 
@@ -50,4 +50,4 @@ app.listen(PORT, () => {
   console.log(`Health check: http://localhost:${PORT}/api/health`);
 });
 
-module.exports = app;
+export default app;

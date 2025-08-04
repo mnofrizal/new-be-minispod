@@ -1,173 +1,109 @@
-const prisma = require("../utils/prisma");
+import userService from "../services/user.service.js";
+import sendResponse from "../utils/response.js";
+import { StatusCodes } from "http-status-codes";
+import logger from "../utils/logger.js";
 
-class UserController {
-  async getProfile(req, res) {
-    try {
-      const userId = req.user.userId;
+const getProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
 
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          role: true,
-          avatar: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
+    const user = await userService.getProfileById(userId);
 
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-
-      res.status(200).json({
-        success: true,
-        message: "Profile retrieved successfully",
-        data: { user },
-      });
-    } catch (error) {
-      console.error("Get profile error:", error);
-      res.status(500).json({
-        success: false,
-        message: "Internal server error",
-      });
+    if (!user) {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, "User not found");
     }
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      { user },
+      "Profile retrieved successfully"
+    );
+  } catch (error) {
+    logger.error("Get profile error:", error);
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
   }
+};
 
-  async updateProfile(req, res) {
-    try {
-      const userId = req.user.userId;
-      const { name, phone, avatar } = req.body;
+const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { name, phone, avatar } = req.body;
 
-      // Validate input
-      if (!name && !phone && !avatar) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "At least one field (name, phone, or avatar) is required to update",
-        });
-      }
+    // Update user profile
+    const updatedUser = await userService.updateUserProfile(userId, {
+      name,
+      phone,
+      avatar,
+    });
 
-      // Validate name if provided
-      if (name && (typeof name !== "string" || name.trim().length < 2)) {
-        return res.status(400).json({
-          success: false,
-          message: "Name must be at least 2 characters long",
-        });
-      }
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      { user: updatedUser },
+      "Profile updated successfully"
+    );
+  } catch (error) {
+    logger.error("Update profile error:", error);
 
-      // Validate phone if provided
-      if (phone && typeof phone !== "string") {
-        return res.status(400).json({
-          success: false,
-          message: "Phone must be a string",
-        });
-      }
-
-      // Validate avatar if provided
-      if (avatar && typeof avatar !== "string") {
-        return res.status(400).json({
-          success: false,
-          message: "Avatar must be a string URL",
-        });
-      }
-
-      // Update user profile
-      const updatedUser = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          ...(name && { name: name.trim() }),
-          ...(phone && { phone: phone.trim() }),
-          ...(avatar && { avatar: avatar.trim() }),
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          role: true,
-          avatar: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
-
-      res.status(200).json({
-        success: true,
-        message: "Profile updated successfully",
-        data: { user: updatedUser },
-      });
-    } catch (error) {
-      console.error("Update profile error:", error);
-
-      if (error.code === "P2025") {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-
-      res.status(500).json({
-        success: false,
-        message: "Internal server error",
-      });
+    if (error.code === "P2025") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, "User not found");
     }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
   }
+};
 
-  async updateAvatar(req, res) {
-    try {
-      const userId = req.user.userId;
-      const { avatar } = req.body;
+const updateAvatar = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { avatar } = req.body;
 
-      if (!avatar || typeof avatar !== "string") {
-        return res.status(400).json({
-          success: false,
-          message: "Avatar URL is required and must be a string",
-        });
-      }
-
-      const updatedUser = await prisma.user.update({
-        where: { id: userId },
-        data: { avatar: avatar.trim() },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
-          role: true,
-          avatar: true,
-          createdAt: true,
-          updatedAt: true,
-        },
-      });
-
-      res.status(200).json({
-        success: true,
-        message: "Avatar updated successfully",
-        data: { user: updatedUser },
-      });
-    } catch (error) {
-      console.error("Update avatar error:", error);
-
-      if (error.code === "P2025") {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
-
-      res.status(500).json({
-        success: false,
-        message: "Internal server error",
-      });
+    if (!avatar || typeof avatar !== "string") {
+      return sendResponse(
+        res,
+        StatusCodes.BAD_REQUEST,
+        null,
+        "Avatar URL is required and must be a string"
+      );
     }
-  }
-}
 
-module.exports = new UserController();
+    const updatedUser = await userService.updateUserAvatar(userId, avatar);
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      { user: updatedUser },
+      "Avatar updated successfully"
+    );
+  } catch (error) {
+    logger.error("Update avatar error:", error);
+
+    if (error.code === "P2025") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, "User not found");
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
+  }
+};
+
+export default {
+  getProfile,
+  updateProfile,
+  updateAvatar,
+};

@@ -1,206 +1,167 @@
-const authService = require("../services/auth.service");
+import authService from "../services/auth.service.js";
+import sendResponse from "../utils/response.js";
+import { StatusCodes } from "http-status-codes";
+import logger from "../utils/logger.js";
 
-class AuthController {
-  async register(req, res) {
-    try {
-      const { name, email, phone, password, role, avatar } = req.body;
+const register = async (req, res) => {
+  try {
+    const { name, email, phone, password, role, avatar } = req.body;
 
-      // Basic validation
-      if (!name || !email || !password) {
-        return res.status(400).json({
-          success: false,
-          message: "Name, email, and password are required",
-        });
-      }
+    const result = await authService.register({
+      name,
+      email,
+      phone,
+      password,
+      role,
+      avatar,
+    });
 
-      // Email validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return res.status(400).json({
-          success: false,
-          message: "Please provide a valid email address",
-        });
-      }
+    sendResponse(
+      res,
+      StatusCodes.CREATED,
+      result,
+      "User registered successfully"
+    );
+  } catch (error) {
+    logger.error("Registration error:", error);
 
-      // Password validation
-      if (password.length < 6) {
-        return res.status(400).json({
-          success: false,
-          message: "Password must be at least 6 characters long",
-        });
-      }
-
-      const result = await authService.register({
-        name,
-        email,
-        phone,
-        password,
-        role,
-        avatar,
-      });
-
-      res.status(201).json({
-        success: true,
-        message: "User registered successfully",
-        data: result,
-      });
-    } catch (error) {
-      console.error("Registration error:", error);
-
-      if (error.message === "User with this email already exists") {
-        return res.status(409).json({
-          success: false,
-          message: error.message,
-        });
-      }
-
-      res.status(500).json({
-        success: false,
-        message: "Internal server error",
-      });
+    if (error.message === "User with this email already exists") {
+      return sendResponse(res, StatusCodes.CONFLICT, null, error.message);
     }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
   }
+};
 
-  async login(req, res) {
-    try {
-      const { email, password } = req.body;
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-      // Basic validation
-      if (!email || !password) {
-        return res.status(400).json({
-          success: false,
-          message: "Email and password are required",
-        });
-      }
+    const result = await authService.login(email, password);
 
-      const result = await authService.login(email, password);
+    sendResponse(res, StatusCodes.OK, result, "Login successful");
+  } catch (error) {
+    logger.error("Login error:", error);
 
-      res.status(200).json({
-        success: true,
-        message: "Login successful",
-        data: result,
-      });
-    } catch (error) {
-      console.error("Login error:", error);
-
-      if (error.message === "Invalid email or password") {
-        return res.status(401).json({
-          success: false,
-          message: error.message,
-        });
-      }
-
-      res.status(500).json({
-        success: false,
-        message: "Internal server error",
-      });
+    if (error.message === "Invalid email or password") {
+      return sendResponse(res, StatusCodes.UNAUTHORIZED, null, error.message);
     }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
   }
+};
 
-  async refreshToken(req, res) {
-    try {
-      const { refreshToken } = req.body;
+const refreshToken = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
 
-      if (!refreshToken) {
-        return res.status(400).json({
-          success: false,
-          message: "Refresh token is required",
-        });
-      }
+    const result = await authService.refreshAccessToken(refreshToken);
 
-      const result = await authService.refreshAccessToken(refreshToken);
+    sendResponse(res, StatusCodes.OK, result, "Token refreshed successfully");
+  } catch (error) {
+    logger.error("Refresh token error:", error);
 
-      res.status(200).json({
-        success: true,
-        message: "Token refreshed successfully",
-        data: result,
-      });
-    } catch (error) {
-      console.error("Refresh token error:", error);
-
-      if (
-        error.message === "Invalid refresh token" ||
-        error.message === "Refresh token expired"
-      ) {
-        return res.status(401).json({
-          success: false,
-          message: error.message,
-        });
-      }
-
-      res.status(500).json({
-        success: false,
-        message: "Internal server error",
-      });
+    if (
+      error.message === "Invalid refresh token" ||
+      error.message === "Refresh token expired"
+    ) {
+      return sendResponse(res, StatusCodes.UNAUTHORIZED, null, error.message);
     }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
   }
+};
 
-  async logout(req, res) {
-    try {
-      const { refreshToken } = req.body;
+const logout = async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
 
-      if (refreshToken) {
-        await authService.revokeRefreshToken(refreshToken);
-      }
-
-      res.status(200).json({
-        success: true,
-        message: "Logged out successfully",
-      });
-    } catch (error) {
-      console.error("Logout error:", error);
-      res.status(500).json({
-        success: false,
-        message: "Internal server error",
-      });
+    if (refreshToken) {
+      await authService.revokeRefreshToken(refreshToken);
     }
+
+    sendResponse(res, StatusCodes.OK, null, "Logged out successfully");
+  } catch (error) {
+    logger.error("Logout error:", error);
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
   }
+};
 
-  async logoutAll(req, res) {
-    try {
-      const userId = req.user.userId;
+const logoutAll = async (req, res) => {
+  try {
+    const userId = req.user.userId;
 
-      await authService.revokeAllRefreshTokens(userId);
+    await authService.revokeAllRefreshTokens(userId);
 
-      res.status(200).json({
-        success: true,
-        message: "Logged out from all devices successfully",
-      });
-    } catch (error) {
-      console.error("Logout all error:", error);
-      res.status(500).json({
-        success: false,
-        message: "Internal server error",
-      });
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      null,
+      "Logged out from all devices successfully"
+    );
+  } catch (error) {
+    logger.error("Logout all error:", error);
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
+  }
+};
+
+const getProfile = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const user = await authService.getUserById(userId);
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      { user },
+      "Profile retrieved successfully"
+    );
+  } catch (error) {
+    logger.error("Get profile error:", error);
+
+    if (error.message === "User not found") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
     }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
   }
+};
 
-  async getProfile(req, res) {
-    try {
-      const userId = req.user.userId;
-      const user = await authService.getUserById(userId);
-
-      res.status(200).json({
-        success: true,
-        message: "Profile retrieved successfully",
-        data: { user },
-      });
-    } catch (error) {
-      console.error("Get profile error:", error);
-
-      if (error.message === "User not found") {
-        return res.status(404).json({
-          success: false,
-          message: error.message,
-        });
-      }
-
-      res.status(500).json({
-        success: false,
-        message: "Internal server error",
-      });
-    }
-  }
-}
-
-module.exports = new AuthController();
+export default {
+  register,
+  login,
+  refreshToken,
+  logout,
+  logoutAll,
+  getProfile,
+};

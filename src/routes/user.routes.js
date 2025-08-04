@@ -1,6 +1,8 @@
-const express = require("express");
-const userController = require("../controllers/user.controller");
-const { authenticateToken } = require("../middleware/auth");
+import express from "express";
+import userController from "../controllers/user.controller.js";
+import { authenticateToken } from "../middleware/auth.js";
+import validate from "../middleware/validate.js";
+import userValidation from "../validations/user.validation.js";
 
 const router = express.Router();
 
@@ -9,7 +11,11 @@ router.use(authenticateToken);
 
 // Profile routes
 router.get("/profile", userController.getProfile);
-router.put("/profile", userController.updateProfile);
+router.put(
+  "/profile",
+  validate(userValidation.updateProfile),
+  userController.updateProfile
+);
 router.patch("/avatar", userController.updateAvatar);
 
-module.exports = router;
+export default router;
