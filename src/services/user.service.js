@@ -18,6 +18,20 @@ const getProfileById = async (userId) => {
 
 const updateUserProfile = async (userId, updateData) => {
   const { name, phone, avatar } = updateData;
+
+  if (phone) {
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        phone: phone.trim(),
+        id: { not: userId },
+      },
+    });
+
+    if (existingUser) {
+      throw new Error("Phone number is already in use");
+    }
+  }
+
   return prisma.user.update({
     where: { id: userId },
     data: {

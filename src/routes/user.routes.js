@@ -16,6 +16,10 @@ router.put(
   validate(userValidation.updateProfile),
   userController.updateProfile
 );
-router.patch("/avatar", userController.updateAvatar);
+router.patch(
+  "/avatar",
+  validate(userValidation.updateAvatar),
+  userController.updateAvatar
+);
 
 export default router;

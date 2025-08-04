@@ -51,6 +51,10 @@ const updateProfile = async (req, res) => {
   } catch (error) {
     logger.error("Update profile error:", error);
 
+    if (error.message === "Phone number is already in use") {
+      return sendResponse(res, StatusCodes.CONFLICT, null, error.message);
+    }
+
     if (error.code === "P2025") {
       return sendResponse(res, StatusCodes.NOT_FOUND, null, "User not found");
     }
@@ -68,15 +72,6 @@ const updateAvatar = async (req, res) => {
   try {
     const userId = req.user.userId;
     const { avatar } = req.body;
-
-    if (!avatar || typeof avatar !== "string") {
-      return sendResponse(
-        res,
-        StatusCodes.BAD_REQUEST,
-        null,
-        "Avatar URL is required and must be a string"
-      );
-    }
 
     const updatedUser = await userService.updateUserAvatar(userId, avatar);
 

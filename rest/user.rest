@@ -2,9 +2,16 @@
 
 ### Base URL
 @baseUrl = http://localhost:3000/api
+@authToken = {{login_response.response.body.data.accessToken}}
 
-### Authentication Token (replace with actual token)
-@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWR4NDV1OTYwMDAwdnY4c2IyNHpweWg3IiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc1NDMxMjY4OSwiZXhwIjoxNzU0MzEzNTg5fQ.9A3WMdih3bk1TCCGAmO0nplBSCB3kzt3Y8m59R7mPC8
+# @name login_response
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
 
 ### Get User Profile
 GET {{baseUrl}}/users/profile

@@ -1,6 +1,16 @@
 ### Variables
 @baseUrl = http://localhost:3000/api
-@token = your_jwt_token_here
+@authToken = {{login_response.response.body.data.accessToken}}
+
+# @name login_response
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
 
 ### Health Check
 GET {{baseUrl}}/health
@@ -18,14 +28,6 @@ Content-Type: application/json
   "avatar": "https://minispod.com/avatar.jpg"
 }
 
-### Login Admin
-POST {{baseUrl}}/auth/login
-Content-Type: application/json
-
-{
-  "email": "admin@minispod.com",
-  "password": "password123"
-}
 
 ### Login User
 POST {{baseUrl}}/auth/login
@@ -40,7 +42,8 @@ Content-Type: application/json
 
 ### Get User Profile (Protected Route)
 GET {{baseUrl}}/auth/profile
-Authorization: Bearer {{token}}
+Authorization: Bearer {{authToken}}
+
 
 
 
