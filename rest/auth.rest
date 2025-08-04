@@ -1,0 +1,46 @@
+### Variables
+@baseUrl = http://localhost:3000/api
+@token = your_jwt_token_here
+
+### Health Check
+GET {{baseUrl}}/health
+
+### Register User
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "John Doe",
+  "email": "john@minispod.com",
+  "phone": "+1234567890",
+  "password": "password123",
+  "role": "USER",
+  "avatar": "https://minispod.com/avatar.jpg"
+}
+
+### Login Admin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+### Login User
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "john@minispod.com",
+  "password": "password123"
+}
+
+
+
+### Get User Profile (Protected Route)
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer {{token}}
+
+
+
