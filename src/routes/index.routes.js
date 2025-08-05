@@ -3,6 +3,9 @@ import authRoutes from "./auth.routes.js";
 import userProfileRoutes from "./user/profile.routes.js";
 import adminUserRoutes from "./admin/users.routes.js";
 import adminK8sNodeRoutes from "./admin/k8s/node.routes.js";
+import adminK8sNamespaceRoutes from "./admin/k8s/namespace.routes.js";
+import adminK8sDeploymentRoutes from "./admin/k8s/deployment.routes.js";
+import adminK8sPodRoutes from "./admin/k8s/pod.routes.js";
 
 const router = express.Router();
 
@@ -14,7 +17,10 @@ router.use("/user", userProfileRoutes);
 
 // Admin routes
 router.use("/admin/users", adminUserRoutes);
-router.use("/admin/k8s", adminK8sNodeRoutes);
+router.use("/admin/k8s/nodes", adminK8sNodeRoutes);
+router.use("/admin/k8s/namespaces", adminK8sNamespaceRoutes);
+router.use("/admin/k8s/deployments", adminK8sDeploymentRoutes);
+router.use("/admin/k8s/pods", adminK8sPodRoutes);
 
 // Health check route
 router.get("/health", (req, res) => {

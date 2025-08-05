@@ -1,0 +1,16 @@
+@baseUrl = http://localhost:3000/api
+@adminToken = {{admin_login.response.body.data.accessToken}}
+
+### Admin Login
+# @name admin_login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+### Get all namespaces
+GET {{baseUrl}}/admin/k8s/namespaces
+Authorization: Bearer {{adminToken}}
