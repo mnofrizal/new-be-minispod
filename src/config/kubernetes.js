@@ -5,6 +5,8 @@ import {
   NetworkingV1Api,
   Metrics,
 } from "@kubernetes/client-node";
+import os from "os";
+import path from "path";
 import logger from "../utils/logger.js";
 
 // Kubernetes configuration and client management
@@ -19,13 +21,41 @@ const initializeKubernetesClient = () => {
   try {
     kc = new KubeConfig();
 
-    // Load kubeconfig from default locations or in-cluster config
-    if (process.env.NODE_ENV === "production") {
+    // Load kubeconfig from a specific path if KUBECONFIG_PATH is set,
+    // otherwise load from default locations or in-cluster config
+    if (process.env.KUBECONFIG_PATH) {
+      let kubeconfigPath = process.env.KUBECONFIG_PATH;
+      // Expand tilde to home directory
+      if (kubeconfigPath.startsWith("~")) {
+        kubeconfigPath = path.join(os.homedir(), kubeconfigPath.slice(1));
+      }
+      kc.loadFromFile(kubeconfigPath);
+    } else if (process.env.NODE_ENV === "production") {
       // In-cluster configuration (when running inside K8s cluster)
       kc.loadFromCluster();
     } else {
       // Local development - load from ~/.kube/config
       kc.loadFromDefault();
+    }
+
+    // (INSECURE) Skip TLS verification if the environment variable is set
+    // This is useful for development with self-signed certificates
+    logger.info(
+      `Checking for K8S_SKIP_TLS_VERIFY env var: "${process.env.K8S_SKIP_TLS_VERIFY}"`
+    );
+    if (process.env.K8S_SKIP_TLS_VERIFY === "true") {
+      const cluster = kc.getCurrentCluster();
+      if (cluster) {
+        logger.warn(
+          "K8S_SKIP_TLS_VERIFY is true. Attempting to disable Kubernetes TLS certificate verification..."
+        );
+        cluster.skipTlsVerify = true;
+        logger.info(
+          `Cluster's skipTlsVerify flag is now set to: ${cluster.skipTlsVerify}`
+        );
+      } else {
+        logger.warn("Could not get current cluster to set skipTlsVerify flag.");
+      }
     }
 
     k8sApi = kc.makeApiClient(CoreV1Api);
