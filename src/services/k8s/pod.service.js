@@ -94,6 +94,25 @@ const getAllPods = async () => {
           pod.metadata.name,
           pod.metadata.namespace
         );
+
+        // Merge container info with metrics
+        const containers = pod.spec.containers.map((c) => {
+          const containerStatus = pod.status.containerStatuses
+            ? pod.status.containerStatuses.find((cs) => cs.name === c.name)
+            : null;
+
+          const containerMetrics = metrics?.containers?.find(
+            (mc) => mc.name === c.name
+          );
+
+          return {
+            name: c.name,
+            image: c.image,
+            ready: containerStatus?.ready || false,
+            usage: containerMetrics?.usage || null,
+          };
+        });
+
         return {
           name: pod.metadata.name,
           namespace: pod.metadata.namespace,
@@ -108,18 +127,9 @@ const getAllPods = async () => {
               )
             : 0,
           createdAt: pod.metadata.creationTimestamp,
-          containers: pod.spec.containers.map((c) => ({
-            name: c.name,
-            image: c.image,
-            ready: pod.status.containerStatuses
-              ? (
-                  pod.status.containerStatuses.find(
-                    (cs) => cs.name === c.name
-                  ) || {}
-                ).ready
-              : false,
-          })),
-          metrics,
+          containers,
+          metricsTimestamp: metrics?.timestamp || null,
+          metricsWindow: metrics?.window || null,
         };
       })
     );

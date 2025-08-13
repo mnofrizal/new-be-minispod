@@ -2,6 +2,7 @@ import {
   KubeConfig,
   CoreV1Api,
   AppsV1Api,
+  NetworkingV1Api,
   Metrics,
 } from "@kubernetes/client-node";
 import logger from "../utils/logger.js";
@@ -11,6 +12,7 @@ let kc = null;
 let k8sApi = null;
 let metricsApi = null;
 let appsV1Api = null;
+let networkingV1Api = null;
 let isInitialized = false;
 
 const initializeKubernetesClient = () => {
@@ -28,6 +30,7 @@ const initializeKubernetesClient = () => {
 
     k8sApi = kc.makeApiClient(CoreV1Api);
     appsV1Api = kc.makeApiClient(AppsV1Api);
+    networkingV1Api = kc.makeApiClient(NetworkingV1Api);
     metricsApi = new Metrics(kc);
     isInitialized = true;
     logger.info("Kubernetes client and metrics API initialized successfully");
@@ -40,6 +43,7 @@ const initializeKubernetesClient = () => {
     k8sApi = null;
     metricsApi = null;
     appsV1Api = null;
+    networkingV1Api = null;
   }
 };
 
@@ -72,6 +76,13 @@ const getAppsV1ApiClient = () => {
   return appsV1Api;
 };
 
+const getNetworkingV1ApiClient = () => {
+  if (!isInitialized) {
+    initializeKubernetesClient();
+  }
+  return networkingV1Api;
+};
+
 // Initialize client when module loads
 initializeKubernetesClient();
 
@@ -82,4 +93,5 @@ export {
   getKubeConfig,
   initializeKubernetesClient,
   getAppsV1ApiClient,
+  getNetworkingV1ApiClient,
 };
