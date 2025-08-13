@@ -32,6 +32,19 @@ The backend follows a **layered architecture** pattern with clear separation of 
 - [`src/middleware/auth.js`](src/middleware/auth.js:1) - JWT verification and role-based authorization
 - [`src/validations/auth.validation.js`](src/validations/auth.validation.js:1) - Joi validation schemas
 
+### Service Catalog & Business Logic
+
+- [`src/services/catalog.service.js`](src/services/catalog.service.js:1) - Service catalog management and browsing
+- [`src/services/quota.service.js`](src/services/quota.service.js:1) - Simplified quota management system
+- [`src/services/credit.service.js`](src/services/credit.service.js:1) - Credit balance and wallet management
+- [`src/services/subscription.service.js`](src/services/subscription.service.js:1) - Subscription lifecycle management
+- [`src/services/transaction.service.js`](src/services/transaction.service.js:1) - Transaction handling and reporting
+- [`src/services/payment/midtrans.service.js`](src/services/payment/midtrans.service.js:1) - Midtrans payment integration
+
+### Payment Integration
+
+- [`src/config/midtrans.js`](src/config/midtrans.js:1) - Midtrans payment gateway configuration
+
 ### Kubernetes Integration
 
 - [`src/config/kubernetes.js`](src/config/kubernetes.js:1) - K8s client initialization and management
@@ -40,8 +53,9 @@ The backend follows a **layered architecture** pattern with clear separation of 
 
 ### Database Layer
 
-- [`prisma/schema.prisma`](prisma/schema.prisma:1) - Database schema definition
+- [`prisma/schema.prisma`](prisma/schema.prisma:1) - Complete database schema with service catalog models
 - [`src/utils/prisma.js`](src/utils/prisma.js:1) - Prisma client instance
+- [`prisma/seed.js`](prisma/seed.js:1) - Comprehensive seed data with service catalog
 
 ### Utilities
 
@@ -57,11 +71,22 @@ The backend follows a **layered architecture** pattern with clear separation of 
 - **Role-based Access**: USER and ADMINISTRATOR roles with middleware enforcement
 - **Password Security**: bcrypt with 12 salt rounds
 
+### Service Catalog Architecture
+
+- **ServiceCategory Model**: Hierarchical service organization (Development Tools, CMS, Databases)
+- **Service Model**: Service templates with Kubernetes configuration (N8N, Ghost, PostgreSQL)
+- **ServicePlan Model**: Pricing tiers with simplified quota system (FREE, BASIC, PRO, PREMIUM, ENTERPRISE)
+- **Subscription Model**: User subscriptions with credit-based billing and upgrade-only policy
+- **Transaction Model**: Complete transaction tracking with Midtrans payment methods
+- **ServiceInstance Model**: Kubernetes instance management linked to subscriptions
+
 ### Database Design
 
-- **User Model**: Core user information with role-based access
+- **User Model**: Enhanced with credit fields (creditBalance, totalTopUp, totalSpent)
 - **RefreshToken Model**: Secure token management with expiration
-- **Cascade Deletion**: Refresh tokens deleted when user is removed
+- **Service Catalog Models**: Complete schema for PaaS service management
+- **Credit System**: Transaction-based credit management with audit trail
+- **Cascade Deletion**: Proper relationship management across all models
 
 ### Kubernetes Integration
 
@@ -72,12 +97,28 @@ The backend follows a **layered architecture** pattern with clear separation of 
 - **Error Handling**: Graceful degradation when K8s cluster is unavailable
 - **Multi-namespace Support**: Cross-namespace resource monitoring
 
+### Credit-Based Billing System
+
+- **Credit Management**: Real-time balance tracking with transaction history
+- **Payment Integration**: Midtrans gateway with multiple payment methods (Bank Transfer, E-Wallet, Credit Card, QRIS)
+- **Transaction Types**: TOP_UP, SUBSCRIPTION, UPGRADE, REFUND, ADMIN_ADJUSTMENT
+- **Automated Processing**: Webhook handling for payment notifications
+- **Audit Trail**: Complete transaction logging with balance snapshots
+
+### Simplified Quota Management
+
+- **Real-time Tracking**: totalQuota and usedQuota fields per service plan
+- **Atomic Operations**: Database transactions for quota allocation/release
+- **Capacity Monitoring**: Utilization tracking with health status indicators
+- **Availability Checks**: Pre-allocation validation to prevent overselling
+
 ### API Design Patterns
 
 - **Consistent Response Format**: Standardized success/error responses with timestamps
 - **HTTP Status Codes**: Proper status code usage throughout
 - **Error Handling**: Global error handler with detailed logging
 - **Validation**: Joi schemas for request validation
+- **Business Logic Separation**: Clean service layer architecture
 
 ## Component Relationships
 
@@ -87,6 +128,30 @@ The backend follows a **layered architecture** pattern with clear separation of 
 2. Controller calls → [`auth.service.js`](src/services/auth.service.js:1)
 3. Service interacts with → [`prisma.js`](src/utils/prisma.js:1) → PostgreSQL
 4. JWT tokens generated and returned
+
+### Service Catalog Flow
+
+1. User browses catalog → Catalog Controller (to be implemented)
+2. Controller calls → [`catalog.service.js`](src/services/catalog.service.js:1)
+3. Service queries → Database models → Returns formatted catalog data
+4. Availability checked via → [`quota.service.js`](src/services/quota.service.js:1)
+
+### Subscription Creation Flow
+
+1. User selects plan → Subscription Controller (to be implemented)
+2. Validation → [`subscription.service.js`](src/services/subscription.service.js:189) → `validateSubscription()`
+3. Credit check → [`credit.service.js`](src/services/credit.service.js:6) → `checkSufficientCredit()`
+4. Quota allocation → [`quota.service.js`](src/services/quota.service.js:46) → `allocateQuota()`
+5. Credit deduction → [`credit.service.js`](src/services/credit.service.js:25) → `deductCredit()`
+6. Subscription created → Database transaction → Success response
+
+### Payment Processing Flow
+
+1. User initiates top-up → Wallet Controller (to be implemented)
+2. Controller calls → [`midtrans.service.js`](src/services/payment/midtrans.service.js:15) → `createTopUpTransaction()`
+3. Midtrans API → Payment page → User completes payment
+4. Webhook notification → [`midtrans.service.js`](src/services/payment/midtrans.service.js:129) → `handleNotification()`
+5. Credit added → [`credit.service.js`](src/services/credit.service.js:58) → `addCredit()`
 
 ### Kubernetes Monitoring Flow
 
@@ -110,6 +175,18 @@ The backend follows a **layered architecture** pattern with clear separation of 
 ### User Registration Path
 
 [`auth.routes.js`](src/routes/auth.routes.js:1) → [`auth.controller.js`](src/controllers/auth.controller.js:6) → [`auth.service.js`](src/services/auth.service.js:6) → [`prisma.js`](src/utils/prisma.js:1)
+
+### Service Catalog Browsing Path
+
+Catalog Routes (to be implemented) → Catalog Controller (to be implemented) → [`catalog.service.js`](src/services/catalog.service.js:25) → Database
+
+### Subscription Management Path
+
+Subscription Routes (to be implemented) → Subscription Controller (to be implemented) → [`subscription.service.js`](src/services/subscription.service.js:15) → [`credit.service.js`](src/services/credit.service.js:25) + [`quota.service.js`](src/services/quota.service.js:46)
+
+### Payment Processing Path
+
+Wallet Routes (to be implemented) → Wallet Controller (to be implemented) → [`midtrans.service.js`](src/services/payment/midtrans.service.js:15) → Midtrans API
 
 ### Protected Route Access
 
