@@ -127,9 +127,6 @@ async function main() {
       version: "latest",
       dockerImage: "n8nio/n8n:latest",
       defaultPort: 5678,
-      minCpuMilli: 200,
-      minMemoryMb: 256,
-      minStorageGb: 2,
       categoryId: devToolsCategory.id,
       envTemplate: {
         N8N_BASIC_AUTH_ACTIVE: "true",
@@ -160,9 +157,6 @@ async function main() {
       version: "5-alpine",
       dockerImage: "ghost:5-alpine",
       defaultPort: 2368,
-      minCpuMilli: 150,
-      minMemoryMb: 512,
-      minStorageGb: 5,
       categoryId: cmsCategory.id,
       envTemplate: {
         url: "https://{{subdomain}}.minispod.com",
@@ -192,9 +186,6 @@ async function main() {
       version: "15-alpine",
       dockerImage: "postgres:15-alpine",
       defaultPort: 5432,
-      minCpuMilli: 100,
-      minMemoryMb: 256,
-      minStorageGb: 10,
       categoryId: databaseCategory.id,
       envTemplate: {
         POSTGRES_DB: "myapp",
@@ -224,7 +215,6 @@ async function main() {
       planType: "FREE",
       description: "Perfect for trying out N8N automation",
       monthlyPrice: 0,
-      setupFee: 0,
       cpuMilli: 200,
       memoryMb: 256,
       storageGb: 2,
@@ -251,7 +241,6 @@ async function main() {
       planType: "BASIC",
       description: "Great for small teams and personal projects",
       monthlyPrice: 50000, // 50k IDR
-      setupFee: 0,
       cpuMilli: 500,
       memoryMb: 512,
       storageGb: 5,
@@ -278,7 +267,6 @@ async function main() {
       planType: "PRO",
       description: "Advanced features for growing businesses",
       monthlyPrice: 150000, // 150k IDR
-      setupFee: 0,
       cpuMilli: 1000,
       memoryMb: 1024,
       storageGb: 10,
@@ -310,7 +298,6 @@ async function main() {
       planType: "FREE",
       description: "Perfect for personal blogs",
       monthlyPrice: 0,
-      setupFee: 0,
       cpuMilli: 150,
       memoryMb: 512,
       storageGb: 5,
@@ -337,7 +324,6 @@ async function main() {
       planType: "BASIC",
       description: "For serious content creators",
       monthlyPrice: 75000, // 75k IDR
-      setupFee: 0,
       cpuMilli: 300,
       memoryMb: 1024,
       storageGb: 10,
@@ -365,7 +351,6 @@ async function main() {
       planType: "BASIC",
       description: "Small database for development",
       monthlyPrice: 25000, // 25k IDR
-      setupFee: 0,
       cpuMilli: 100,
       memoryMb: 256,
       storageGb: 10,
@@ -392,7 +377,6 @@ async function main() {
       planType: "PRO",
       description: "High-performance database for production",
       monthlyPrice: 100000, // 100k IDR
-      setupFee: 0,
       cpuMilli: 500,
       memoryMb: 1024,
       storageGb: 50,

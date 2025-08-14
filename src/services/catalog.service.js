@@ -43,11 +43,21 @@ class CatalogService {
                     id: true,
                     name: true,
                     planType: true,
-                    monthlyPrice: true,
                     description: true,
-                    isPopular: true,
+                    monthlyPrice: true,
+                    // Resource Specifications (key differentiators)
+                    cpuMilli: true,
+                    memoryMb: true,
+                    storageGb: true,
+                    bandwidth: true,
+                    // Plan Features
+                    features: true,
+                    maxInstancesPerUser: true,
+                    maxDomains: true,
+                    // Quota Information
                     totalQuota: true,
                     usedQuota: true,
+                    isPopular: true,
                   },
                 },
               },
@@ -66,59 +76,191 @@ class CatalogService {
   }
 
   /**
-   * Get services by category slug
-   * @param {string} categorySlug - Category slug
-   * @param {Object} options - Query options
-   * @returns {Promise<Object>} Category with services
+   * Get all services with pagination
+   * @param {number} page - Page number
+   * @param {number} limit - Items per page
+   * @returns {Promise<Object>} Services with pagination
    */
-  async getServicesByCategory(categorySlug, options = {}) {
-    const { includePlans = true } = options;
+  async getAllServices(page = 1, limit = 10) {
+    const offset = (page - 1) * limit;
+
+    const [services, total] = await Promise.all([
+      prisma.service.findMany({
+        where: {
+          isActive: true,
+          isPublic: true,
+        },
+        include: {
+          category: {
+            select: {
+              name: true,
+              slug: true,
+            },
+          },
+          plans: {
+            where: { isActive: true },
+            orderBy: { sortOrder: "asc" },
+            select: {
+              id: true,
+              name: true,
+              planType: true,
+              description: true,
+              monthlyPrice: true,
+              // Resource Specifications (key differentiators)
+              cpuMilli: true,
+              memoryMb: true,
+              storageGb: true,
+              bandwidth: true,
+              // Plan Features
+              features: true,
+              maxInstancesPerUser: true,
+              maxDomains: true,
+              // Quota Information
+              totalQuota: true,
+              usedQuota: true,
+              isPopular: true,
+            },
+          },
+        },
+        orderBy: [
+          { isFeatured: "desc" },
+          { sortOrder: "asc" },
+          { name: "asc" },
+        ],
+        skip: offset,
+        take: limit,
+      }),
+      prisma.service.count({
+        where: {
+          isActive: true,
+          isPublic: true,
+        },
+      }),
+    ]);
+
+    // Add availability status to plans
+    const servicesWithAvailability = services.map((service) => ({
+      ...service,
+      plans: service.plans.map((plan) => ({
+        ...plan,
+        availableQuota: plan.totalQuota - plan.usedQuota,
+        isAvailable: plan.totalQuota - plan.usedQuota > 0,
+        monthlyPrice: parseFloat(plan.monthlyPrice),
+      })),
+    }));
+
+    return {
+      services: servicesWithAvailability,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  /**
+   * Get services by category slug with pagination
+   * @param {string} categorySlug - Category slug
+   * @param {number} page - Page number
+   * @param {number} limit - Items per page
+   * @returns {Promise<Object>} Category with services and pagination
+   */
+  async getServicesByCategory(categorySlug, page = 1, limit = 10) {
+    const offset = (page - 1) * limit;
 
     const category = await prisma.serviceCategory.findUnique({
       where: { slug: categorySlug },
-      include: {
-        services: {
-          where: { isActive: true, isPublic: true },
-          include: {
-            plans: includePlans
-              ? {
-                  where: { isActive: true },
-                  orderBy: { sortOrder: "asc" },
-                  select: {
-                    id: true,
-                    name: true,
-                    planType: true,
-                    monthlyPrice: true,
-                    setupFee: true,
-                    description: true,
-                    cpuMilli: true,
-                    memoryMb: true,
-                    storageGb: true,
-                    bandwidth: true,
-                    features: true,
-                    maxInstancesPerUser: true,
-                    maxDomains: true,
-                    isPopular: true,
-                    totalQuota: true,
-                    usedQuota: true,
-                  },
-                }
-              : false,
-          },
-          orderBy: [
-            { isFeatured: "desc" },
-            { sortOrder: "asc" },
-            { name: "asc" },
-          ],
-        },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
       },
     });
 
     if (!category) {
-      throw new Error("Category not found");
+      return null;
     }
 
-    return category;
+    const [services, total] = await Promise.all([
+      prisma.service.findMany({
+        where: {
+          isActive: true,
+          isPublic: true,
+          categoryId: category.id,
+        },
+        include: {
+          category: {
+            select: {
+              name: true,
+              slug: true,
+            },
+          },
+          plans: {
+            where: { isActive: true },
+            orderBy: { sortOrder: "asc" },
+            select: {
+              id: true,
+              name: true,
+              planType: true,
+              description: true,
+              monthlyPrice: true,
+              // Resource Specifications (key differentiators)
+              cpuMilli: true,
+              memoryMb: true,
+              storageGb: true,
+              bandwidth: true,
+              // Plan Features
+              features: true,
+              maxInstancesPerUser: true,
+              maxDomains: true,
+              // Quota Information
+              totalQuota: true,
+              usedQuota: true,
+              isPopular: true,
+            },
+          },
+        },
+        orderBy: [
+          { isFeatured: "desc" },
+          { sortOrder: "asc" },
+          { name: "asc" },
+        ],
+        skip: offset,
+        take: limit,
+      }),
+      prisma.service.count({
+        where: {
+          isActive: true,
+          isPublic: true,
+          categoryId: category.id,
+        },
+      }),
+    ]);
+
+    // Add availability status to plans
+    const servicesWithAvailability = services.map((service) => ({
+      ...service,
+      plans: service.plans.map((plan) => ({
+        ...plan,
+        availableQuota: plan.totalQuota - plan.usedQuota,
+        isAvailable: plan.totalQuota - plan.usedQuota > 0,
+        monthlyPrice: parseFloat(plan.monthlyPrice),
+      })),
+    }));
+
+    return {
+      ...category,
+      services: servicesWithAvailability,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   /**
@@ -146,7 +288,6 @@ class CatalogService {
             planType: true,
             description: true,
             monthlyPrice: true,
-            setupFee: true,
             cpuMilli: true,
             memoryMb: true,
             storageGb: true,
@@ -179,6 +320,7 @@ class CatalogService {
       ...plan,
       availableQuota: plan.totalQuota - plan.usedQuota,
       isAvailable: plan.totalQuota - plan.usedQuota > 0,
+      monthlyPrice: parseFloat(plan.monthlyPrice),
     }));
 
     return service;
@@ -228,7 +370,20 @@ class CatalogService {
               id: true,
               name: true,
               planType: true,
+              description: true,
               monthlyPrice: true,
+              // Resource Specifications (key differentiators)
+              cpuMilli: true,
+              memoryMb: true,
+              storageGb: true,
+              bandwidth: true,
+              // Plan Features
+              features: true,
+              maxInstancesPerUser: true,
+              maxDomains: true,
+              // Quota Information
+              totalQuota: true,
+              usedQuota: true,
               isPopular: true,
             },
           },
@@ -253,7 +408,7 @@ class CatalogService {
    * @returns {Promise<Array>} Array of featured services
    */
   async getFeaturedServices(limit = 6) {
-    return await prisma.service.findMany({
+    const services = await prisma.service.findMany({
       where: {
         isActive: true,
         isPublic: true,
@@ -270,20 +425,101 @@ class CatalogService {
         plans: {
           where: { isActive: true },
           orderBy: { monthlyPrice: "asc" },
-          take: 1, // Get cheapest plan
+          take: 1, // Get cheapest plan for display
           select: {
             id: true,
             name: true,
             planType: true,
+            description: true,
             monthlyPrice: true,
+            // Resource Specifications (key differentiators)
+            cpuMilli: true,
+            memoryMb: true,
+            storageGb: true,
+            bandwidth: true,
+            // Plan Features
+            features: true,
+            maxInstancesPerUser: true,
+            maxDomains: true,
+            // Quota Information
             totalQuota: true,
             usedQuota: true,
+            isPopular: true,
           },
         },
       },
       orderBy: { sortOrder: "asc" },
       take: limit,
     });
+
+    // Add availability status
+    return services.map((service) => ({
+      ...service,
+      plans: service.plans.map((plan) => ({
+        ...plan,
+        availableQuota: plan.totalQuota - plan.usedQuota,
+        isAvailable: plan.totalQuota - plan.usedQuota > 0,
+        monthlyPrice: parseFloat(plan.monthlyPrice),
+      })),
+    }));
+  }
+
+  /**
+   * Get service plans for a specific service
+   * @param {string} serviceSlug - Service slug
+   * @returns {Promise<Object|null>} Service plans or null if not found
+   */
+  async getServicePlans(serviceSlug) {
+    const service = await prisma.service.findUnique({
+      where: {
+        slug: serviceSlug,
+        isActive: true,
+        isPublic: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        plans: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            name: true,
+            planType: true,
+            description: true,
+            monthlyPrice: true,
+            cpuMilli: true,
+            memoryMb: true,
+            storageGb: true,
+            bandwidth: true,
+            totalQuota: true,
+            usedQuota: true,
+            features: true,
+            maxInstancesPerUser: true,
+            maxDomains: true,
+            isPopular: true,
+          },
+          orderBy: { sortOrder: "asc" },
+        },
+      },
+    });
+
+    if (!service) {
+      return null;
+    }
+
+    // Add availability status and format plans
+    return {
+      serviceId: service.id,
+      serviceName: service.name,
+      serviceSlug: service.slug,
+      plans: service.plans.map((plan) => ({
+        ...plan,
+        availableQuota: plan.totalQuota - plan.usedQuota,
+        isAvailable: plan.totalQuota - plan.usedQuota > 0,
+        monthlyPrice: parseFloat(plan.monthlyPrice),
+      })),
+    };
   }
 
   /**
@@ -302,9 +538,6 @@ class CatalogService {
             slug: true,
             dockerImage: true,
             defaultPort: true,
-            minCpuMilli: true,
-            minMemoryMb: true,
-            minStorageGb: true,
             envTemplate: true,
             category: {
               select: {

@@ -1,0 +1,204 @@
+### Variables
+@baseUrl = http://localhost:3000/api
+@authToken = {{admin_login.response.body.data.accessToken}}
+
+### Admin Login
+# @name admin_login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+#######################################
+# AUTHENTICATED CATALOG API ENDPOINTS
+# Note: All endpoints require authentication
+#######################################
+
+### Get all service categories
+GET {{baseUrl}}/catalog/categories
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Get services by category (Development Tools)
+GET {{baseUrl}}/catalog/categories/cms/services
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Get services by category with pagination
+GET {{baseUrl}}/catalog/categories/cms/services?page=1&limit=5
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Get all services (across all categories)
+GET {{baseUrl}}/catalog/services
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Get all services with pagination
+GET {{baseUrl}}/catalog/services?page=1&limit=5
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Get service details by slug (N8N)
+GET {{baseUrl}}/catalog/services/n8n-automation
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Get service details by slug (Ghost)
+GET {{baseUrl}}/catalog/services/ghost-blog
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Get service plans for specific service
+GET {{baseUrl}}/catalog/services/n8n-automation/plans
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Search services - general search
+GET {{baseUrl}}/catalog/search?q=automation
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Search services - by category
+GET {{baseUrl}}/catalog/search?category=dev-tools
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Search services - featured only
+GET {{baseUrl}}/catalog/search?featured=true
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Search services - complex search
+GET {{baseUrl}}/catalog/search?q=blog&category=cms&page=1&limit=10
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Get featured services
+GET {{baseUrl}}/catalog/featured
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Get featured services with limit
+GET {{baseUrl}}/catalog/featured?limit=3
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+#######################################
+# AUTHENTICATION - Get Access Token First
+#######################################
+
+### Login to get access token (run this first)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "your_email@example.com",
+  "password": "your_password"
+}
+
+#######################################
+# ERROR TESTING
+#######################################
+
+### Test non-existent category
+GET {{baseUrl}}/catalog/categories/non-existent/services
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Test non-existent service
+GET {{baseUrl}}/catalog/services/non-existent-service
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Test non-existent service plans
+GET {{baseUrl}}/catalog/services/non-existent-service/plans
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Test invalid pagination
+GET {{baseUrl}}/catalog/categories/dev-tools/services?page=0&limit=0
+Content-Type: application/json
+Authorization: Bearer {{authToken}}
+
+### Test unauthorized access (without token)
+GET {{baseUrl}}/catalog/categories
+Content-Type: application/json
+
+#######################################
+# SAMPLE RESPONSES (Expected)
+#######################################
+
+### Expected response for GET /catalog/categories:
+# {
+#   "success": true,
+#   "message": "Service categories retrieved successfully",
+#   "data": [
+#     {
+#       "id": "category_id",
+#       "name": "Development Tools",
+#       "slug": "dev-tools",
+#       "description": "Tools for developers",
+#       "serviceCount": 2
+#     }
+#   ],
+#   "timestamp": "2024-01-15T10:30:00Z"
+# }
+
+### Expected response for GET /catalog/services/n8n-automation:
+# {
+#   "success": true,
+#   "message": "Service details retrieved successfully",
+#   "data": {
+#     "id": "service_id",
+#     "name": "N8N Automation",
+#     "slug": "n8n-automation",
+#     "description": "Workflow automation tool",
+#     "icon": "icon_url",
+#     "category": {
+#       "name": "Development Tools",
+#       "slug": "dev-tools"
+#     },
+#     "plans": [
+#       {
+#         "id": "plan_id",
+#         "name": "Free",
+#         "planType": "FREE",
+#         "monthlyPrice": 0,
+#         "availableQuota": 5,
+#         "isAvailable": true
+#       }
+#     ]
+#   }
+# }
+
+### Expected response for GET /catalog/services (NEW ENDPOINT):
+# {
+#   "success": true,
+#   "message": "All services retrieved successfully",
+#   "data": {
+#     "services": [
+#       {
+#         "id": "service_id",
+#         "name": "N8N Automation",
+#         "slug": "n8n-automation",
+#         "description": "Workflow automation tool",
+#         "category": {
+#           "name": "Development Tools",
+#           "slug": "dev-tools"
+#         },
+#         "plans": [...]
+#       }
+#     ],
+#     "pagination": {
+#       "page": 1,
+#       "limit": 10,
+#       "total": 3,
+#       "totalPages": 1
+#     }
+#   },
+#   "timestamp": "2024-01-15T10:30:00Z"
+# }

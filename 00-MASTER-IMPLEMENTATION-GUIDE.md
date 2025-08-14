@@ -320,11 +320,6 @@ model Service {
   dockerImage String   // "n8nio/n8n:latest"
   defaultPort Int      @default(3000)
 
-  // Resource Requirements (minimum)
-  minCpuMilli    Int @default(100)  // 0.1 CPU
-  minMemoryMb    Int @default(128)  // 128MB RAM
-  minStorageGb   Int @default(1)    // 1GB storage
-
   categoryId     String
   category       ServiceCategory @relation(fields: [categoryId], references: [id])
 
@@ -366,7 +361,6 @@ model ServicePlan {
 
   // Pricing
   monthlyPrice Decimal @db.Decimal(10, 2) // Monthly price in IDR
-  setupFee     Decimal @db.Decimal(10, 2) @default(0)
 
   // Resource Allocations
   cpuMilli     Int     // CPU in millicores
@@ -724,25 +718,36 @@ src/config/
 
 **Priority: HIGH**
 
-#### 2.1 Public Catalog Endpoints (3-4 hari)
+#### 2.1 Authenticated Catalog Endpoints (3-4 hari) ✅ **COMPLETED**
 
-**Files to create:**
+**Files created:**
 
 ```
-src/controllers/catalog.controller.js
-src/routes/catalog.routes.js
-src/validations/catalog.validation.js
-rest/catalog.rest
+src/controllers/catalog.controller.js ✅
+src/routes/catalog.routes.js ✅
+src/validations/catalog.validation.js ✅
+rest/catalog.rest ✅
 ```
 
-**API Endpoints:**
+**API Endpoints (All require authentication):**
 
 ```http
-GET /api/catalog/categories
-GET /api/catalog/categories/:categorySlug/services
-GET /api/catalog/services/:serviceSlug
-GET /api/catalog/search
+GET /api/catalog/categories              # Get all service categories
+GET /api/catalog/services                # Get all services (NEW!)
+GET /api/catalog/categories/:categorySlug/services # Get services by category
+GET /api/catalog/services/:serviceSlug   # Get service details
+GET /api/catalog/services/:serviceSlug/plans # Get service plans
+GET /api/catalog/search                  # Search services
+GET /api/catalog/featured                # Get featured services
 ```
+
+**Key Improvements Made:**
+
+- ✅ Authentication required for all catalog endpoints
+- ✅ Added missing getAllServices endpoint
+- ✅ Enhanced plan responses with complete resource details (CPU, memory, storage)
+- ✅ Removed redundant setupFee and service resource fields
+- ✅ Fixed ES modules import issues
 
 #### 2.2 Wallet Management API (2-3 hari)
 

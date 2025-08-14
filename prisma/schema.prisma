@@ -87,11 +87,6 @@ model Service {
   dockerImage String // "n8nio/n8n:latest"
   defaultPort Int    @default(3000)
 
-  // Resource Requirements (minimum)
-  minCpuMilli  Int @default(100) // 0.1 CPU
-  minMemoryMb  Int @default(128) // 128MB RAM
-  minStorageGb Int @default(1) // 1GB storage
-
   categoryId String
   category   ServiceCategory @relation(fields: [categoryId], references: [id])
 
@@ -133,7 +128,6 @@ model ServicePlan {
 
   // Pricing
   monthlyPrice Decimal @db.Decimal(10, 2) // Monthly price in IDR
-  setupFee     Decimal @default(0) @db.Decimal(10, 2)
 
   // Resource Allocations
   cpuMilli  Int // CPU in millicores

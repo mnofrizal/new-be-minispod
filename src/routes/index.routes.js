@@ -1,6 +1,7 @@
 import express from "express";
 import authRoutes from "./auth.routes.js";
 import userProfileRoutes from "./user/profile.routes.js";
+import catalogRoutes from "./catalog.routes.js";
 import adminUserRoutes from "./admin/users.routes.js";
 import adminK8sNodeRoutes from "./admin/k8s/node.routes.js";
 import adminK8sNamespaceRoutes from "./admin/k8s/namespace.routes.js";
@@ -14,7 +15,10 @@ const router = express.Router();
 // Auth routes
 router.use("/auth", authRoutes);
 
-// User routes
+// Protected catalog routes (authentication required)
+router.use("/catalog", catalogRoutes);
+
+// User routes (protected)
 router.use("/user", userProfileRoutes);
 
 // Admin routes
