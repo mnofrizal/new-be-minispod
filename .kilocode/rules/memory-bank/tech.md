@@ -131,6 +131,8 @@ npm start
 
 - `rest/auth.rest` - Authentication endpoints
 - `rest/user.rest` - User management endpoints
+- `rest/catalog.rest` - Public catalog browsing endpoints
+- `rest/wallet.rest` - Wallet management and payment endpoints
 - `rest/admin/manage-user.rest` - User management endpoints
 - `rest/admin/k8s-pods.rest` - Pod monitoring endpoints
 - `rest/admin/k8s-deployments.rest` - Deployment monitoring endpoints
@@ -147,6 +149,19 @@ npm start
 - `POST /api/auth/login` - User login
 - `GET /api/auth/profile` - Get user profile
 - `GET /api/health` - Health check
+
+#### Public Catalog & Wallet Management
+
+- `GET /api/catalog/categories` - List service categories
+- `GET /api/catalog/services` - List available services
+- `GET /api/catalog/services/:serviceId/plans` - Get service plans
+- `GET /api/wallet/info` - Get wallet balance and statistics
+- `GET /api/wallet/transactions` - Get transaction history
+- `POST /api/wallet/topup` - Create Midtrans payment transaction
+- `GET /api/wallet/payment-methods` - Get available payment methods
+- `GET /api/wallet/transactions/:id/status` - Check transaction status
+- `POST /api/wallet/transactions/:id/cancel` - Cancel pending transaction
+- `POST /api/wallet/webhook/midtrans` - Midtrans payment webhook
 
 #### Kubernetes Monitoring (Admin Only)
 
@@ -179,6 +194,8 @@ npm start
 - Prisma for type-safe database operations
 - Automatic cascade deletion for related records
 - Unique constraints on email and phone fields
+- Enhanced decimal precision (DECIMAL(15,2)) for currency fields
+- Complete service catalog schema with credit-based billing
 
 ```
 

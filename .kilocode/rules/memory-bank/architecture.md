@@ -34,12 +34,19 @@ The backend follows a **layered architecture** pattern with clear separation of 
 
 ### Service Catalog & Business Logic
 
+- [`src/controllers/catalog.controller.js`](src/controllers/catalog.controller.js:1) - Public catalog browsing endpoints
 - [`src/services/catalog.service.js`](src/services/catalog.service.js:1) - Service catalog management and browsing
 - [`src/services/quota.service.js`](src/services/quota.service.js:1) - Simplified quota management system
 - [`src/services/credit.service.js`](src/services/credit.service.js:1) - Credit balance and wallet management
 - [`src/services/subscription.service.js`](src/services/subscription.service.js:1) - Subscription lifecycle management
 - [`src/services/transaction.service.js`](src/services/transaction.service.js:1) - Transaction handling and reporting
 - [`src/services/payment/midtrans.service.js`](src/services/payment/midtrans.service.js:1) - Midtrans payment integration
+
+### Wallet Management System
+
+- [`src/controllers/wallet.controller.js`](src/controllers/wallet.controller.js:1) - Complete wallet management with 9 endpoints
+- [`src/routes/wallet.routes.js`](src/routes/wallet.routes.js:1) - JWT-authenticated wallet routes
+- [`src/validations/wallet.validation.js`](src/validations/wallet.validation.js:1) - Comprehensive Joi validation schemas
 
 ### Payment Integration
 
@@ -82,11 +89,12 @@ The backend follows a **layered architecture** pattern with clear separation of 
 
 ### Database Design
 
-- **User Model**: Enhanced with credit fields (creditBalance, totalTopUp, totalSpent)
+- **User Model**: Enhanced with credit fields (creditBalance, totalTopUp, totalSpent) with DECIMAL(15,2) precision
 - **RefreshToken Model**: Secure token management with expiration
 - **Service Catalog Models**: Complete schema for PaaS service management
 - **Credit System**: Transaction-based credit management with audit trail
 - **Cascade Deletion**: Proper relationship management across all models
+- **Precision Enhancement**: Increased decimal precision from DECIMAL(12,2) to DECIMAL(15,2) for all currency fields
 
 ### Kubernetes Integration
 
@@ -147,11 +155,12 @@ The backend follows a **layered architecture** pattern with clear separation of 
 
 ### Payment Processing Flow
 
-1. User initiates top-up → Wallet Controller (to be implemented)
+1. User initiates top-up → [`wallet.controller.js`](src/controllers/wallet.controller.js:1) → `createTopUp()`
 2. Controller calls → [`midtrans.service.js`](src/services/payment/midtrans.service.js:15) → `createTopUpTransaction()`
 3. Midtrans API → Payment page → User completes payment
-4. Webhook notification → [`midtrans.service.js`](src/services/payment/midtrans.service.js:129) → `handleNotification()`
-5. Credit added → [`credit.service.js`](src/services/credit.service.js:58) → `addCredit()`
+4. Webhook notification → [`midtrans.service.js`](src/services/payment/midtrans.service.js:183) → `handleNotification()`
+5. Credit added → Direct database transaction with atomic balance update
+6. Transaction status updated → COMPLETED with proper balance tracking
 
 ### Kubernetes Monitoring Flow
 
@@ -186,7 +195,7 @@ Subscription Routes (to be implemented) → Subscription Controller (to be imple
 
 ### Payment Processing Path
 
-Wallet Routes (to be implemented) → Wallet Controller (to be implemented) → [`midtrans.service.js`](src/services/payment/midtrans.service.js:15) → Midtrans API
+[`wallet.routes.js`](src/routes/wallet.routes.js:1) → [`wallet.controller.js`](src/controllers/wallet.controller.js:1) → [`midtrans.service.js`](src/services/payment/midtrans.service.js:15) → Midtrans API
 
 ### Protected Route Access
 
