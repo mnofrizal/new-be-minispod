@@ -48,6 +48,15 @@ The backend follows a **layered architecture** pattern with clear separation of 
 - [`src/routes/wallet.routes.js`](src/routes/wallet.routes.js:1) - JWT-authenticated wallet routes
 - [`src/validations/wallet.validation.js`](src/validations/wallet.validation.js:1) - Comprehensive Joi validation schemas
 
+### Subscription Management System
+
+- [`src/controllers/subscription.controller.js`](src/controllers/subscription.controller.js:1) - User subscription management with 6 endpoints
+- [`src/controllers/admin/subscription.controller.js`](src/controllers/admin/subscription.controller.js:1) - Admin subscription management with 7 endpoints
+- [`src/routes/subscription.routes.js`](src/routes/subscription.routes.js:1) - JWT-authenticated user subscription routes
+- [`src/routes/admin/subscription.routes.js`](src/routes/admin/subscription.routes.js:1) - ADMINISTRATOR role-protected admin routes
+- [`src/validations/subscription.validation.js`](src/validations/subscription.validation.js:1) - User subscription validation schemas
+- [`src/validations/admin/subscription.validation.js`](src/validations/admin/subscription.validation.js:1) - Admin subscription validation schemas
+
 ### Payment Integration
 
 - [`src/config/midtrans.js`](src/config/midtrans.js:1) - Midtrans payment gateway configuration
@@ -89,12 +98,12 @@ The backend follows a **layered architecture** pattern with clear separation of 
 
 ### Database Design
 
-- **User Model**: Enhanced with credit fields (creditBalance, totalTopUp, totalSpent) with DECIMAL(15,2) precision
+- **User Model**: Enhanced with credit fields (creditBalance, totalTopUp, totalSpent) with Int precision for IDR currency
 - **RefreshToken Model**: Secure token management with expiration
 - **Service Catalog Models**: Complete schema for PaaS service management
 - **Credit System**: Transaction-based credit management with audit trail
 - **Cascade Deletion**: Proper relationship management across all models
-- **Precision Enhancement**: Increased decimal precision from DECIMAL(12,2) to DECIMAL(15,2) for all currency fields
+- **Currency Storage**: Int fields for IDR to avoid decimal precision issues
 
 ### Kubernetes Integration
 
@@ -146,12 +155,20 @@ The backend follows a **layered architecture** pattern with clear separation of 
 
 ### Subscription Creation Flow
 
-1. User selects plan → Subscription Controller (to be implemented)
-2. Validation → [`subscription.service.js`](src/services/subscription.service.js:189) → `validateSubscription()`
+1. User selects plan → [`subscription.controller.js`](src/controllers/subscription.controller.js:1) → `createSubscription()`
+2. Validation → [`subscription.service.js`](src/services/subscription.service.js:656) → `validateSubscription()`
 3. Credit check → [`credit.service.js`](src/services/credit.service.js:6) → `checkSufficientCredit()`
 4. Quota allocation → [`quota.service.js`](src/services/quota.service.js:46) → `allocateQuota()`
 5. Credit deduction → [`credit.service.js`](src/services/credit.service.js:25) → `deductCredit()`
 6. Subscription created → Database transaction → Success response
+
+### Admin Subscription Management Flow
+
+1. Admin creates subscription → [`admin/subscription.controller.js`](src/controllers/admin/subscription.controller.js:14) → `createSubscriptionForUser()`
+2. Bonus subscription option → [`subscription.service.js`](src/services/subscription.service.js:15) → `createSubscription()` with `skipCreditCheck`
+3. Admin upgrade subscription → [`admin/subscription.controller.js`](src/controllers/admin/subscription.controller.js:650) → `upgradeSubscriptionForUser()`
+4. Bonus upgrade option → [`subscription.service.js`](src/services/subscription.service.js:196) → `upgradeSubscription()` with bonus support
+5. Admin refund/extend → Complete admin control over subscription lifecycle
 
 ### Payment Processing Flow
 
@@ -189,9 +206,13 @@ The backend follows a **layered architecture** pattern with clear separation of 
 
 Catalog Routes (to be implemented) → Catalog Controller (to be implemented) → [`catalog.service.js`](src/services/catalog.service.js:25) → Database
 
-### Subscription Management Path
+### User Subscription Management Path
 
-Subscription Routes (to be implemented) → Subscription Controller (to be implemented) → [`subscription.service.js`](src/services/subscription.service.js:15) → [`credit.service.js`](src/services/credit.service.js:25) + [`quota.service.js`](src/services/quota.service.js:46)
+[`subscription.routes.js`](src/routes/subscription.routes.js:1) → [`subscription.controller.js`](src/controllers/subscription.controller.js:1) → [`subscription.service.js`](src/services/subscription.service.js:15) → [`credit.service.js`](src/services/credit.service.js:25) + [`quota.service.js`](src/services/quota.service.js:46)
+
+### Admin Subscription Management Path
+
+[`admin/subscription.routes.js`](src/routes/admin/subscription.routes.js:1) → [`admin/subscription.controller.js`](src/controllers/admin/subscription.controller.js:1) → [`subscription.service.js`](src/services/subscription.service.js:15) → Database transactions with bonus capabilities
 
 ### Payment Processing Path
 

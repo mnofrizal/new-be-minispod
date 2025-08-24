@@ -7,9 +7,13 @@ class SubscriptionService {
    * Create a new subscription for a user
    * @param {string} userId - User ID
    * @param {string} planId - Service plan ID
+   * @param {Object} options - Additional options
+   * @param {boolean} options.skipCreditCheck - Skip credit validation and deduction (for admin bonus subscriptions)
+   * @param {string} options.customDescription - Custom description for transaction (for admin bonus subscriptions)
    * @returns {Promise<Object>} Created subscription
    */
-  async createSubscription(userId, planId) {
+  async createSubscription(userId, planId, options = {}) {
+    const { skipCreditCheck = false, customDescription = null } = options;
     return await prisma.$transaction(async (tx) => {
       // Get user information
       const user = await tx.user.findUnique({
@@ -62,8 +66,8 @@ class SubscriptionService {
         );
       }
 
-      // Check credit balance
-      if (user.creditBalance < plan.monthlyPrice) {
+      // Check credit balance (unless skipped by admin)
+      if (!skipCreditCheck && user.creditBalance < plan.monthlyPrice) {
         throw new Error(
           `Insufficient credit. Balance: ${user.creditBalance}, Required: ${plan.monthlyPrice}`
         );
@@ -86,18 +90,41 @@ class SubscriptionService {
       // Allocate quota
       await quotaService.allocateQuota(planId);
 
-      // Deduct credit from user balance
-      await creditService.deductCredit(
-        userId,
-        plan.monthlyPrice,
-        `Subscription to ${plan.service.name} - ${plan.name} plan`,
-        {
-          type: "SUBSCRIPTION",
-          planId,
-          serviceName: plan.service.name,
-          planName: plan.name,
-        }
-      );
+      // Always create transaction record, but with different amounts and descriptions
+      let chargeAmount = skipCreditCheck ? 0 : plan.monthlyPrice;
+      const transactionDescription =
+        customDescription ||
+        `Subscription to ${plan.service.name} - ${plan.name} plan`;
+
+      if (!skipCreditCheck) {
+        // Regular subscription - deduct credit normally
+        await creditService.deductCredit(
+          userId,
+          plan.monthlyPrice,
+          transactionDescription,
+          {
+            type: "SUBSCRIPTION",
+            planId,
+            serviceName: plan.service.name,
+            planName: plan.name,
+          }
+        );
+      } else {
+        // Bonus subscription - create IDR 0 transaction record for audit trail
+        await creditService.addCredit(
+          userId,
+          0, // IDR 0 amount
+          transactionDescription,
+          {
+            type: "SUBSCRIPTION",
+            status: "COMPLETED",
+            planId,
+            serviceName: plan.service.name,
+            planName: plan.name,
+            isBonusSubscription: true,
+          }
+        );
+      }
 
       // Create subscription
       const subscription = await tx.subscription.create({
@@ -110,7 +137,7 @@ class SubscriptionService {
           endDate,
           nextBilling,
           monthlyPrice: plan.monthlyPrice,
-          lastChargeAmount: plan.monthlyPrice,
+          lastChargeAmount: chargeAmount,
           autoRenew: true,
         },
         include: {
@@ -141,10 +168,17 @@ class SubscriptionService {
 
       return {
         subscription,
-        message: "Subscription created successfully",
+        message: skipCreditCheck
+          ? "Bonus subscription created successfully (no charge)"
+          : "Subscription created successfully",
+        chargeAmount,
+        isBonusSubscription: skipCreditCheck,
         nextSteps: [
           "Service provisioning will begin shortly",
           "You will receive notifications about the deployment status",
+          ...(skipCreditCheck
+            ? ["This is a bonus subscription - no credit was deducted"]
+            : []),
         ],
       };
     });
@@ -154,9 +188,13 @@ class SubscriptionService {
    * Upgrade an existing subscription to a higher plan
    * @param {string} subscriptionId - Subscription ID
    * @param {string} newPlanId - New plan ID
+   * @param {Object} options - Additional options
+   * @param {boolean} options.skipCreditCheck - Skip credit validation and deduction (for admin bonus upgrades)
+   * @param {string} options.customDescription - Custom description for transaction (for admin bonus upgrades)
    * @returns {Promise<Object>} Upgraded subscription
    */
-  async upgradeSubscription(subscriptionId, newPlanId) {
+  async upgradeSubscription(subscriptionId, newPlanId, options = {}) {
+    const { skipCreditCheck = false, customDescription = null } = options;
     return await prisma.$transaction(async (tx) => {
       // Get current subscription
       const subscription = await tx.subscription.findUnique({
@@ -257,8 +295,12 @@ class SubscriptionService {
       const upgradeCost =
         (newMonthlyPrice - currentMonthlyPrice) * proratedRatio;
 
-      // Check if user has sufficient credit for upgrade
-      if (upgradeCost > 0 && subscription.user.creditBalance < upgradeCost) {
+      // Check if user has sufficient credit for upgrade (unless skipped by admin)
+      if (
+        !skipCreditCheck &&
+        upgradeCost > 0 &&
+        subscription.user.creditBalance < upgradeCost
+      ) {
         throw new Error(
           `Insufficient credit for upgrade. Balance: ${subscription.user.creditBalance}, Required: ${upgradeCost}`
         );
@@ -268,21 +310,46 @@ class SubscriptionService {
       await quotaService.releaseQuota(subscription.planId);
       await quotaService.allocateQuota(newPlanId);
 
-      // Deduct upgrade cost if applicable
+      // Handle upgrade cost - always create transaction record
+      let actualCharge = skipCreditCheck ? 0 : upgradeCost;
+      const upgradeDescription =
+        customDescription ||
+        `Upgrade ${subscription.service.name} from ${subscription.plan.name} to ${newPlan.name}`;
+
       if (upgradeCost > 0) {
-        await creditService.deductCredit(
-          subscription.userId,
-          upgradeCost,
-          `Upgrade ${subscription.service.name} from ${subscription.plan.name} to ${newPlan.name}`,
-          {
-            type: "UPGRADE",
-            subscriptionId,
-            oldPlanId: subscription.planId,
-            newPlanId,
-            proratedAmount: upgradeCost,
-            daysRemaining,
-          }
-        );
+        if (!skipCreditCheck) {
+          // Regular upgrade - deduct credit normally
+          await creditService.deductCredit(
+            subscription.userId,
+            upgradeCost,
+            upgradeDescription,
+            {
+              type: "UPGRADE",
+              subscriptionId,
+              oldPlanId: subscription.planId,
+              newPlanId,
+              proratedAmount: upgradeCost,
+              daysRemaining,
+            }
+          );
+        } else {
+          // Bonus upgrade - create IDR 0 transaction record for audit trail
+          await creditService.addCredit(
+            subscription.userId,
+            0, // IDR 0 amount
+            upgradeDescription,
+            {
+              type: "UPGRADE",
+              status: "COMPLETED",
+              subscriptionId,
+              oldPlanId: subscription.planId,
+              newPlanId,
+              proratedAmount: upgradeCost,
+              daysRemaining,
+              isBonusUpgrade: true,
+            }
+          );
+        }
       }
 
       // Update subscription
@@ -321,18 +388,25 @@ class SubscriptionService {
       return {
         subscription: updatedSubscription,
         upgradeCost,
+        actualCharge: actualCharge,
         proratedDays: daysRemaining,
-        message: "Subscription upgraded successfully",
+        isBonusUpgrade: skipCreditCheck,
+        message: skipCreditCheck
+          ? "Bonus upgrade completed successfully (no charge)"
+          : "Subscription upgraded successfully",
         nextSteps: [
           "Service resources will be updated",
           "No downtime expected during the upgrade",
+          ...(skipCreditCheck
+            ? ["This is a bonus upgrade - no credit was deducted"]
+            : []),
         ],
       };
     });
   }
 
   /**
-   * Cancel a subscription
+   * Cancel a subscription (disable auto-renew, keep active until end date)
    * @param {string} subscriptionId - Subscription ID
    * @param {string} reason - Cancellation reason
    * @returns {Promise<Object>} Cancellation result
@@ -378,75 +452,42 @@ class SubscriptionService {
         throw new Error("Subscription is already cancelled");
       }
 
-      // Release quota
-      await quotaService.releaseQuota(subscription.planId);
-
-      // Calculate refund if applicable (for mid-month cancellations)
+      // Calculate days remaining until end date
       const now = new Date();
-      const daysInMonth = new Date(
-        now.getFullYear(),
-        now.getMonth() + 1,
-        0
-      ).getDate();
       const daysRemaining = Math.max(
         0,
         Math.ceil((subscription.endDate - now) / (1000 * 60 * 60 * 24))
       );
-      const refundRatio = daysRemaining / daysInMonth;
-      const refundAmount = subscription.monthlyPrice * refundRatio;
 
-      // Process refund if significant amount
-      let refundProcessed = false;
-      if (refundAmount > 1000) {
-        // Only refund if > 1000 IDR
-        await creditService.refundCredit(
-          subscription.userId,
-          refundAmount,
-          `Refund for cancelled subscription: ${subscription.service.name}`,
-          {
-            subscriptionId,
-            reason,
-            daysRemaining,
-            originalAmount: subscription.monthlyPrice,
-          }
-        );
-        refundProcessed = true;
-      }
-
-      // Update subscription status
+      // Update subscription to disable auto-renew but keep active
       const cancelledSubscription = await tx.subscription.update({
         where: { id: subscriptionId },
         data: {
-          status: "CANCELLED",
-          autoRenew: false,
-          gracePeriodEnd: null,
+          autoRenew: false, // Disable auto-renewal
+          // Keep status as "ACTIVE" - subscription continues until endDate
+          // gracePeriodEnd: null, // Remove any grace period
         },
       });
 
-      // Mark all instances for termination
-      if (subscription.instances.length > 0) {
-        await tx.serviceInstance.updateMany({
-          where: {
-            subscriptionId,
-            status: { in: ["RUNNING", "PENDING", "PROVISIONING"] },
-          },
-          data: {
-            status: "TERMINATED",
-          },
-        });
-      }
+      // DO NOT release quota - user keeps using service until end date
+      // DO NOT terminate instances - service continues running
+      // DO NOT process automatic refund - refunds are admin-only
 
       return {
         subscription: cancelledSubscription,
-        refundAmount: refundProcessed ? refundAmount : 0,
-        refundProcessed,
-        instancesTerminated: subscription.instances.length,
-        message: "Subscription cancelled successfully",
+        refundAmount: 0, // No automatic refund
+        refundProcessed: false,
+        instancesTerminated: 0, // No instances terminated
+        daysRemaining,
+        endDate: subscription.endDate,
+        message: "Auto-renewal cancelled successfully",
         nextSteps: [
-          "All service instances will be terminated",
-          refundProcessed
-            ? `Refund of ${refundAmount} IDR has been credited to your account`
-            : "No refund applicable",
+          `Your subscription will remain active until ${subscription.endDate.toLocaleDateString(
+            "id-ID"
+          )}`,
+          `Service will continue running for ${daysRemaining} more days`,
+          "Auto-renewal has been disabled - no future charges will occur",
+          "Contact admin if you need a refund for unused days",
         ],
       };
     });

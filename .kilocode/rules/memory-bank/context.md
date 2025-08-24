@@ -2,7 +2,7 @@
 
 ## Current Work Focus
 
-The backend API has **completed Phase 2.2: Wallet Management API** with full Midtrans payment integration. The project now has a complete wallet system with credit management, payment processing, and transaction handling.
+The backend API has **completed Phase 3: Subscription Management API** with comprehensive user and admin subscription functionality. The project now has a complete subscription system with user subscription management, admin controls, bonus subscriptions, and upgrade capabilities.
 
 ## Recent Implementation Status
 
@@ -21,8 +21,8 @@ The backend API has **completed Phase 2.2: Wallet Management API** with full Mid
 **Phase 1: Database & Core Models (Completed):**
 
 - **Complete Database Schema**: All service catalog models implemented (ServiceCategory, Service, ServicePlan, Subscription, Transaction, ServiceInstance)
-- **User Model Enhancement**: Added credit fields with increased precision (DECIMAL(15,2))
-- **Database Migration**: Successfully applied with comprehensive seed data
+- **User Model Enhancement**: Added credit fields with increased precision to Int for IDR currency
+- **Database Migration**: Successfully applied with comprehensive seed data and currency conversion
 - **Core Service Layer**: 6 comprehensive business logic services implemented
 - **Midtrans Integration**: Complete payment gateway integration ready
 - **Simplified Quota System**: Real-time quota management with database transactions
@@ -37,7 +37,7 @@ The backend API has **completed Phase 2.2: Wallet Management API** with full Mid
 - **Catalog Validation**: Joi validation schemas for catalog endpoints
 - **Service Filtering**: Category-based filtering and search functionality
 
-**Phase 2.2: Wallet Management API (Just Completed):**
+**Phase 2.2: Wallet Management API (Completed):**
 
 - **Wallet Controller**: 9 comprehensive wallet management endpoints
 - **Wallet Routes**: JWT-authenticated routes for credit management
@@ -46,27 +46,42 @@ The backend API has **completed Phase 2.2: Wallet Management API** with full Mid
 - **Credit Processing**: Real-time balance tracking and transaction management
 - **Payment Methods**: Support for Bank Transfer, E-Wallet, Credit Card, QRIS
 - **Transaction Lifecycle**: Complete status tracking and cancellation support
-- **Database Precision Fix**: Resolved overflow errors with increased decimal precision
+- **Database Precision Fix**: Resolved overflow errors with currency conversion to Int
+
+**Phase 3: Subscription Management API (Just Completed):**
+
+- **User Subscription Controller**: 6 comprehensive user subscription endpoints
+- **User Subscription Routes**: JWT-authenticated routes for subscription management
+- **User Subscription Validation**: Complete Joi validation schemas
+- **Admin Subscription Controller**: 7 comprehensive admin subscription management endpoints
+- **Admin Subscription Routes**: ADMINISTRATOR role-protected routes
+- **Admin Subscription Validation**: Complete admin-specific validation schemas
+- **Bonus Subscription System**: Admin capability to create free subscriptions with audit trail
+- **Admin Upgrade System**: Admin capability to upgrade subscriptions with bonus upgrade support
+- **Subscription Lifecycle**: Create, upgrade, cancel, refund, extend, and force-cancel capabilities
+- **Business Logic**: Upgrade-only policy, prorated billing, quota management
+- **Comprehensive Testing**: 28 user test cases + 41 admin test cases
 
 ### 🔄 Current State
 
 - **Environment**: Development setup with local PostgreSQL database
-- **Database**: Enhanced schema with DECIMAL(15,2) precision for currency fields
+- **Database**: Enhanced schema with Int currency fields for IDR precision
 - **Core Services**: All 6 services tested and working properly
 - **Payment Integration**: Midtrans fully operational with webhook processing
 - **Wallet System**: Production-ready with comprehensive error handling
-- **Progress**: 75% complete (increased from 55%)
+- **Subscription System**: Complete user and admin subscription management
+- **Progress**: 90% complete (increased from 75%)
 
 ## Next Steps
 
-### Immediate Priorities (Phase 3: Subscription Management API)
+### Immediate Priorities (Phase 4: Service Provisioning & Instance Management)
 
-1. **Subscription Endpoints**: Create REST API controllers for subscription management
-2. **Service Provisioning**: Implement Kubernetes service deployment automation
-3. **Instance Management**: Service instance lifecycle management endpoints
-4. **Billing Automation**: Automated subscription billing and renewal system
+1. **Kubernetes Service Deployment**: Implement automated service provisioning
+2. **Instance Management**: Service instance lifecycle management endpoints
+3. **Health Monitoring**: Service instance health checks and status monitoring
+4. **Domain Management**: Custom domain and SSL certificate management
 
-### Future Enhancements (Phase 4+)
+### Future Enhancements (Phase 5+)
 
 - **Admin Dashboard**: Management interfaces and analytics
 - **Auto-scaling**: Dynamic resource scaling based on usage
@@ -80,10 +95,87 @@ The backend API has **completed Phase 2.2: Wallet Management API** with full Mid
 - **Authentication**: JWT with refresh tokens for security and scalability
 - **K8s Client**: Official Kubernetes JavaScript client for cluster integration
 - **Architecture**: Clean separation of controllers, services, and utilities
+- **Currency Storage**: Int fields for IDR to avoid decimal precision issues
 
 ## Recent Implementation History
 
-### Phase 2.2: Wallet Management API Implementation (Completed)
+### Phase 3: Subscription Management API Implementation (Just Completed)
+
+#### User Subscription System Architecture
+
+- **Location**: [`src/controllers/subscription.controller.js`](src/controllers/subscription.controller.js:1), [`src/routes/subscription.routes.js`](src/routes/subscription.routes.js:1), [`src/validations/subscription.validation.js`](src/validations/subscription.validation.js:1)
+- **Features**: Complete user subscription management with 6 endpoints covering subscription creation, upgrade, cancellation, and management
+- **API Routes**: All routes under `/api/subscriptions/*` with JWT authentication required
+- **Testing**: [`rest/subscription.rest`](rest/subscription.rest:1) - 28 comprehensive test cases covering all user scenarios
+
+#### Admin Subscription Management System
+
+- **Location**: [`src/controllers/admin/subscription.controller.js`](src/controllers/admin/subscription.controller.js:1), [`src/routes/admin/subscription.routes.js`](src/routes/admin/subscription.routes.js:1), [`src/validations/admin/subscription.validation.js`](src/validations/admin/subscription.validation.js:1)
+- **Features**: Complete admin subscription management with 7 endpoints covering user subscription creation, management, refunds, extensions, and upgrades
+- **API Routes**: All routes under `/api/admin/subscriptions/*` with ADMINISTRATOR role required
+- **Testing**: [`rest/admin/subscription.rest`](rest/admin/subscription.rest:1) - 41 comprehensive test cases covering all admin scenarios
+
+#### Critical Prisma Decimal Arithmetic Bug (Fixed)
+
+- **Issue**: `462,000 + 150,000 = 462,000.150,000` concatenation instead of addition
+- **Root Cause**: Prisma Decimal arithmetic causing string concatenation instead of mathematical addition
+- **Location**: [`src/services/payment/midtrans.service.js`](src/services/payment/midtrans.service.js:205) - Credit balance updates
+- **Solution Applied**:
+  1. **Database Migration**: Converted all currency fields from DECIMAL to Int for IDR precision
+  2. **Migration**: Applied `20250824161700_change_currency_to_int` migration successfully
+  3. **Service Updates**: Updated all services to handle Int currency values
+  4. **Data Cleanup**: Created [`scripts/fix-contaminated-balance.js`](scripts/fix-contaminated-balance.js:1) to fix corrupted data
+- **Result**: All currency operations now work correctly with proper mathematical addition
+
+#### Subscription Controller Validation Error (Fixed)
+
+- **Issue**: `getValidationStatusCode is not defined` error in subscription controller
+- **Root Cause**: Imported validation helper function that didn't exist
+- **Location**: [`src/controllers/subscription.controller.js`](src/controllers/subscription.controller.js:1)
+- **Solution**: Converted to standalone validation function within controller
+- **Result**: All subscription endpoints now validate properly
+
+#### Admin Routes Middleware Error (Fixed)
+
+- **Issue**: `requireAdmin is not defined` import error in admin routes
+- **Root Cause**: Attempted to import non-existent middleware function
+- **Location**: [`src/routes/admin/subscription.routes.js`](src/routes/admin/subscription.routes.js:1)
+- **Solution**: Used existing `authorizeRoles("ADMINISTRATOR")` middleware pattern
+- **Result**: All admin routes now properly authenticate and authorize
+
+#### Bonus Subscription System Implementation
+
+- **Feature**: Admin capability to create free subscriptions for users
+- **Implementation**: `skipCreditCheck` option in subscription service bypasses credit validation and deduction
+- **Audit Trail**: Creates IDR 0 transaction records with custom admin reason for proper tracking
+- **Location**: [`src/services/subscription.service.js`](src/services/subscription.service.js:15) - Enhanced createSubscription method
+- **Admin Endpoint**: `POST /api/admin/subscriptions` with `skipCreditCheck: true` option
+
+#### Admin Upgrade Subscription System Implementation
+
+- **Feature**: Admin capability to upgrade user subscriptions with bonus upgrade support
+- **Implementation**: Enhanced `upgradeSubscription` method with `skipCreditCheck` and `customDescription` options
+- **Bonus Upgrades**: Admin can upgrade users without credit validation, creating IDR 0 audit trail
+- **Location**: [`src/services/subscription.service.js`](src/services/subscription.service.js:196) - Enhanced upgradeSubscription method
+- **Admin Endpoint**: `PUT /api/admin/subscriptions/:subscriptionId/upgrade` with bonus upgrade capability
+- **Controller**: [`src/controllers/admin/subscription.controller.js`](src/controllers/admin/subscription.controller.js:650) - upgradeSubscriptionForUser method
+
+#### Subscription Cancellation Policy Update
+
+- **Business Logic Change**: Updated cancellation to disable auto-renew only, keeping service active until end date
+- **No Automatic Refunds**: Refunds are now admin-only operations for better financial control
+- **User Experience**: Users keep service access for remaining subscription period
+- **Location**: [`src/services/subscription.service.js`](src/services/subscription.service.js:407) - cancelSubscription method
+
+#### Comprehensive Business Logic Implementation
+
+- **Upgrade-Only Policy**: Users can only upgrade to higher tier plans, no downgrades
+- **Same Service Restriction**: Upgrades must be within the same service category
+- **Prorated Billing**: Upgrade costs calculated based on remaining subscription days
+- **Quota Management**: Automatic quota allocation/release during subscription changes
+- **Transaction Audit**: Complete transaction history for all subscription operations
+
+### Phase 2.2: Wallet Management API Implementation (Previously Completed)
 
 #### Wallet System Architecture
 
@@ -91,17 +183,6 @@ The backend API has **completed Phase 2.2: Wallet Management API** with full Mid
 - **Features**: Complete wallet management with 9 endpoints covering credit management, payment processing, and transaction handling
 - **API Routes**: All routes under `/api/wallet/*` with JWT authentication required
 - **Testing**: [`rest/wallet.rest`](rest/wallet.rest:1) - 28 comprehensive test cases covering all scenarios
-
-#### Critical Database Precision Overflow Bug (Fixed)
-
-- **Issue**: `numeric field overflow` error during Midtrans webhook processing
-- **Root Cause**: JavaScript Decimal arithmetic causing values to exceed DECIMAL(12,2) precision limit
-- **Location**: [`src/services/payment/midtrans.service.js`](src/services/payment/midtrans.service.js:205) - Webhook notification handler
-- **Solution Applied**:
-  1. **Database Schema Update**: Increased precision from DECIMAL(12,2) to DECIMAL(15,2) for all currency fields
-  2. **Arithmetic Fix**: Converted Prisma Decimal objects to numbers before addition: `Number(user.creditBalance) + Number(transaction.amount)`
-  3. **Migration**: Applied `20250814160700_increase_decimal_precision` migration successfully
-- **Result**: Webhook processing now handles credit top-ups correctly without overflow errors
 
 #### Midtrans Integration Enhancements
 

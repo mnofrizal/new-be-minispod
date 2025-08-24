@@ -1,0 +1,332 @@
+### Variables
+@baseUrl = http://localhost:3000/api
+@authToken = {{admin_login.response.body.data.accessToken}}
+
+### ============================================================================
+### SUBSCRIPTION MANAGEMENT ENDPOINTS
+### ============================================================================
+### Admin Login
+# @name admin_login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+
+### 1. Get User Subscriptions
+GET {{baseUrl}}/subscriptions
+Authorization: Bearer {{authToken}}
+
+### 2. Get User Subscriptions with Status Filter
+GET {{baseUrl}}/subscriptions?status=ACTIVE&includeInstances=true
+Authorization: Bearer {{authToken}}
+
+### 3. Get User Subscriptions - All Statuses
+GET {{baseUrl}}/subscriptions?includeInstances=false
+Authorization: Bearer {{authToken}}
+
+### ============================================================================
+### SUBSCRIPTION VALIDATION
+### ============================================================================
+
+### 4. Validate Subscription Before Creation
+POST {{baseUrl}}/subscriptions/validate
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "planId": "clxxxxxxxxxxxxxxxxxxxxx"
+}
+
+### 5. Validate Subscription - Invalid Plan ID
+POST {{baseUrl}}/subscriptions/validate
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "planId": "invalid_plan_id"
+}
+
+### ============================================================================
+### SUBSCRIPTION CREATION
+### ============================================================================
+
+### 6. Create New Subscription - N8N Basic Plan
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "planId": "cmepx3ggl000gvviigaab5b34"
+}
+
+### 7. Create New Subscription - Ghost Pro Plan
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "planId": "clyyyyyyyyyyyyyyyyyyy"
+}
+
+### 8. Create Subscription - Insufficient Credit (should fail)
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "planId": "cmepwamtx000gvvlpkuakhjcd"
+}
+
+### 9. Create Subscription - Invalid Plan ID (should fail)
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "planId": "invalid_plan"
+}
+
+### ============================================================================
+### SUBSCRIPTION DETAILS
+### ============================================================================
+
+### 10. Get Subscription Details
+GET {{baseUrl}}/subscriptions/clxxxxxxxxxxxxxxxxxxxxx
+Authorization: Bearer {{authToken}}
+
+### 11. Get Subscription Details - Not Found (should fail)
+GET {{baseUrl}}/subscriptions/clnonexistentsubscription
+Authorization: Bearer {{authToken}}
+
+### ============================================================================
+### SUBSCRIPTION UPGRADE
+### ============================================================================
+
+### 12. Upgrade Subscription to Higher Plan
+PUT {{baseUrl}}/subscriptions/cmepx4h1p0007vvjvrfhpft1i/upgrade
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "newPlanId": "cmepx3ggo000ivviixctv7kjj"
+}
+
+### 13. Upgrade Subscription - Same Tier (should fail)
+PUT {{baseUrl}}/subscriptions/clxxxxxxxxxxxxxxxxxxxxx/upgrade
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "newPlanId": "clxxxxxxxxxxxxxxxxxxxxx"
+}
+
+### 14. Upgrade Subscription - Lower Tier (should fail)
+PUT {{baseUrl}}/subscriptions/clxxxxxxxxxxxxxxxxxxxxx/upgrade
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "newPlanId": "clzzzzzzzzzzzzzzzzzzzz"
+}
+
+### 15. Upgrade Subscription - Insufficient Credit (should fail)
+PUT {{baseUrl}}/subscriptions/clxxxxxxxxxxxxxxxxxxxxx/upgrade
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "newPlanId": "clpremiumplanxxxxxxxxxx"
+}
+
+### ============================================================================
+### SUBSCRIPTION CANCELLATION
+### ============================================================================
+
+### 16. Cancel Subscription with Reason
+DELETE {{baseUrl}}/subscriptions/cmepx4h1p0007vvjvrfhpft1i
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "reason": "No longer needed for current project"
+}
+
+### 17. Cancel Subscription without Reason
+DELETE {{baseUrl}}/subscriptions/clyyyyyyyyyyyyyyyyyyy
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{}
+
+### 18. Cancel Already Cancelled Subscription (should fail)
+DELETE {{baseUrl}}/subscriptions/cmepwcp720009vvnxyl2rlof2
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "reason": "Testing duplicate cancellation"
+}
+
+### 19. Cancel Non-existent Subscription (should fail)
+DELETE {{baseUrl}}/subscriptions/clnonexistentsubscription
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "reason": "Testing non-existent subscription"
+}
+
+### ============================================================================
+### ERROR SCENARIOS
+### ============================================================================
+
+### 20. Access Subscription without Authentication (should fail)
+GET {{baseUrl}}/subscriptions
+
+### 21. Create Subscription without Authentication (should fail)
+POST {{baseUrl}}/subscriptions
+Content-Type: application/json
+
+{
+  "planId": "clxxxxxxxxxxxxxxxxxxxxx"
+}
+
+### 22. Create Subscription with Invalid JWT (should fail)
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer invalid_authToken
+Content-Type: application/json
+
+{
+  "planId": "clxxxxxxxxxxxxxxxxxxxxx"
+}
+
+### 23. Create Subscription with Missing Plan ID (should fail)
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{}
+
+### 24. Upgrade with Invalid Subscription ID (should fail)
+PUT {{baseUrl}}/subscriptions/invalid_id/upgrade
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "newPlanId": "clyyyyyyyyyyyyyyyyyyy"
+}
+
+### ============================================================================
+### EDGE CASES
+### ============================================================================
+
+### 25. Get Subscriptions with Invalid Status Filter
+GET {{baseUrl}}/subscriptions?status=INVALID_STATUS
+Authorization: Bearer {{authToken}}
+
+### 26. Create Duplicate Subscription (should fail - upgrade-only policy)
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "planId": "clxxxxxxxxxxxxxxxxxxxxx"
+}
+
+### 27. Validate Subscription with Missing Plan ID (should fail)
+POST {{baseUrl}}/subscriptions/validate
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{}
+
+### 28. Cancel Subscription with Very Long Reason
+DELETE {{baseUrl}}/subscriptions/clxxxxxxxxxxxxxxxxxxxxx
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "reason": "This is a very long cancellation reason that exceeds the normal length to test validation limits. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."
+}
+
+### ============================================================================
+### INTEGRATION TESTS
+### ============================================================================
+
+### 29. Full Subscription Lifecycle Test
+# Step 1: Validate subscription
+POST {{baseUrl}}/subscriptions/validate
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "planId": "clxxxxxxxxxxxxxxxxxxxxx"
+}
+
+###
+# Step 2: Create subscription
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "planId": "clxxxxxxxxxxxxxxxxxxxxx"
+}
+
+###
+# Step 3: Get subscription details
+GET {{baseUrl}}/subscriptions/clxxxxxxxxxxxxxxxxxxxxx
+Authorization: Bearer {{authToken}}
+
+###
+# Step 4: Upgrade subscription
+PUT {{baseUrl}}/subscriptions/clxxxxxxxxxxxxxxxxxxxxx/upgrade
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "newPlanId": "clyyyyyyyyyyyyyyyyyyy"
+}
+
+###
+# Step 5: Cancel subscription
+DELETE {{baseUrl}}/subscriptions/clxxxxxxxxxxxxxxxxxxxxx
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "reason": "End of integration test"
+}
+
+### ============================================================================
+### NOTES
+### ============================================================================
+
+# Before running these tests:
+# 1. Update the @authToken variable with a valid JWT token
+# 2. Replace plan IDs with actual plan IDs from your database
+# 3. Replace subscription IDs with actual subscription IDs from your database
+# 4. Ensure you have sufficient credit balance for subscription tests
+# 5. Make sure the API server is running on http://localhost:3000
+
+# Test Categories:
+# - Basic CRUD operations
+# - Authentication and authorization
+# - Business logic validation (upgrade-only policy)
+# - Credit balance validation
+# - Quota availability checking
+# - Error handling and edge cases
+# - Integration workflow testing
+
+# Expected Responses:
+# - 200 OK: Successful operations
+# - 201 Created: Successful subscription creation
+# - 400 Bad Request: Validation errors, business rule violations
+# - 401 Unauthorized: Missing or invalid authentication
+# - 404 Not Found: Resource not found
+# - 409 Conflict: Duplicate subscription attempts
+# - 503 Service Unavailable: Quota exceeded

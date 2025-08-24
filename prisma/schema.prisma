@@ -32,9 +32,9 @@ model User {
   refreshTokens RefreshToken[]
 
   // NEW RELATIONS - Service Catalog & Credit System
-  creditBalance Decimal @default(0) @db.Decimal(15, 2) // Credit balance in IDR
-  totalTopUp    Decimal @default(0) @db.Decimal(15, 2) // Total lifetime top-up
-  totalSpent    Decimal @default(0) @db.Decimal(15, 2) // Total lifetime spending
+  creditBalance Int @default(0) // Credit balance in IDR (no decimals needed)
+  totalTopUp    Int @default(0) // Total lifetime top-up in IDR
+  totalSpent    Int @default(0) // Total lifetime spending in IDR
 
   subscriptions Subscription[]
   transactions  Transaction[]
@@ -127,7 +127,7 @@ model ServicePlan {
   description String?
 
   // Pricing
-  monthlyPrice Decimal @db.Decimal(15, 2) // Monthly price in IDR
+  monthlyPrice Int // Monthly price in IDR (no decimals needed)
 
   // Resource Allocations
   cpuMilli  Int // CPU in millicores
@@ -190,9 +190,9 @@ model Subscription {
   nextBilling DateTime?
 
   // Credit-based Billing
-  monthlyPrice     Decimal  @db.Decimal(15, 2) // Cached price
-  lastChargeAmount Decimal? @db.Decimal(15, 2)
-  failedCharges    Int      @default(0)
+  monthlyPrice     Int // Cached price in IDR
+  lastChargeAmount Int? // Last charge amount in IDR
+  failedCharges    Int  @default(0)
 
   // Upgrade System
   previousPlanId String?
@@ -248,11 +248,11 @@ model Transaction {
 
   type   TransactionType
   status TransactionStatus @default(PENDING)
-  amount Decimal           @db.Decimal(15, 2) // Amount in IDR
+  amount Int // Amount in IDR (no decimals needed)
 
   // Balance Information
-  balanceBefore Decimal @db.Decimal(15, 2)
-  balanceAfter  Decimal @db.Decimal(15, 2)
+  balanceBefore Int // Balance before transaction in IDR
+  balanceAfter  Int // Balance after transaction in IDR
 
   // Payment Information
   paymentMethod    PaymentMethod?

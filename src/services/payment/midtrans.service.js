@@ -190,8 +190,8 @@ class MidtransService {
             },
           });
 
-          const balanceBefore = Number(user.creditBalance);
-          const balanceAfter = balanceBefore + Number(transaction.amount);
+          const balanceBefore = user.creditBalance;
+          const balanceAfter = balanceBefore + transaction.amount;
 
           // Update user balance and total top-up
           await tx.user.update({

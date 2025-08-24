@@ -123,7 +123,7 @@ async function main() {
       description: "Workflow automation tool for connecting apps and services",
       longDescription:
         "N8N is a powerful workflow automation tool that allows you to connect different apps and services to automate repetitive tasks. Build complex workflows with a visual interface.",
-      icon: "https://docs.n8n.io/favicon.ico",
+      icon: "https://docs.n8n.io/_images/n8n-docs-icon.svg",
       version: "latest",
       dockerImage: "n8nio/n8n:latest",
       defaultPort: 5678,

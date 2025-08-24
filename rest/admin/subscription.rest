@@ -1,0 +1,389 @@
+### Admin Subscription Management API Tests
+### Base URL and Authentication
+@baseUrl = http://localhost:3000/api
+@adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWVwdmFtdHgwMDBhdnZscGt1YWtoamNkIiwicm9sZSI6IkFETUlOSVNUUkFUT1IiLCJpYXQiOjE3MjQ1MTI4MDAsImV4cCI6MTcyNDU5OTIwMH0.example
+
+### 1. Create Subscription for User (Admin)
+POST {{baseUrl}}/admin/subscriptions
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "cmepwamtx000avvlpkuakhjcd",
+  "planId": "cmepwamtx000gvvlpkuakhjcd",
+  "reason": "Admin created subscription for new customer onboarding"
+}
+
+### 2. Create Bonus Subscription for User - No Credit Deduction (Admin)
+POST {{baseUrl}}/admin/subscriptions
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "cmepwamtx000avvlpkuakhjcd",
+  "planId": "cmepwamtx000gvvlpkuakhjcd",
+  "skipCreditCheck": true,
+  "reason": "Bonus subscription for loyal customer - no credit deduction"
+}
+
+### 3. Create Subscription for User - Insufficient Credit (should show warning)
+POST {{baseUrl}}/admin/subscriptions
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "cmepwamtx000avvlpkuakhjcd",
+  "planId": "cmepwamtx000hvvlpkuakhjcd",
+  "skipCreditCheck": false,
+  "reason": "Testing insufficient credit scenario"
+}
+
+### 4. Get All Subscriptions (Admin)
+GET {{baseUrl}}/admin/subscriptions
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+### 5. Get All Subscriptions with Filters
+GET {{baseUrl}}/admin/subscriptions?page=1&limit=10&status=ACTIVE&search=john
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+### 6. Get Subscription Statistics
+GET {{baseUrl}}/admin/subscriptions/stats
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+### 7. Get Subscription Statistics with Date Range
+GET {{baseUrl}}/admin/subscriptions/stats?startDate=2024-08-01&endDate=2024-08-31
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+### 8. Force Cancel Subscription (Admin)
+DELETE {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/force-cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Service violation - inappropriate usage detected",
+  "terminateInstances": true
+}
+
+### 9. Force Cancel Subscription (Keep Instances Running)
+DELETE {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/force-cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "User requested immediate cancellation",
+  "terminateInstances": false
+}
+
+### 10. Process Manual Refund (Partial)
+POST {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/refund
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 50000,
+  "reason": "Service downtime compensation - 5 days of service unavailable",
+  "refundType": "PARTIAL"
+}
+
+### 11. Process Manual Refund (Full)
+POST {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/refund
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 150000,
+  "reason": "Complete service failure - full month refund",
+  "refundType": "FULL"
+}
+
+### 12. Extend Subscription (7 days)
+PUT {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/extend
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "extensionDays": 7,
+  "reason": "Compensation for service downtime last week"
+}
+
+### 13. Extend Subscription (30 days)
+PUT {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/extend
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "extensionDays": 30,
+  "reason": "Promotional extension for loyal customer"
+}
+
+### 14. Get All Subscriptions - Filter by Service
+GET {{baseUrl}}/admin/subscriptions?serviceId=cmepwamtx000bvvlpkuakhjcd
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+### 15. Get All Subscriptions - Filter by User
+GET {{baseUrl}}/admin/subscriptions?userId=cmepwamtx000avvlpkuakhjcd
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+### 16. Get All Subscriptions - Filter by Status
+GET {{baseUrl}}/admin/subscriptions?status=CANCELLED
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+### 17. Get All Subscriptions - Pagination
+GET {{baseUrl}}/admin/subscriptions?page=2&limit=5
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+### Error Test Cases
+
+### 18. Create Subscription - Invalid User ID
+POST {{baseUrl}}/admin/subscriptions
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "invalid-user-id",
+  "planId": "cmepwamtx000gvvlpkuakhjcd",
+  "reason": "Testing invalid user ID"
+}
+
+### 19. Create Subscription - Invalid Plan ID
+POST {{baseUrl}}/admin/subscriptions
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "cmepwamtx000avvlpkuakhjcd",
+  "planId": "invalid-plan-id",
+  "reason": "Testing invalid plan ID"
+}
+
+### 20. Create Subscription - Missing Required Fields
+POST {{baseUrl}}/admin/subscriptions
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Testing missing required fields"
+}
+
+### 21. Create Subscription - Duplicate Subscription
+POST {{baseUrl}}/admin/subscriptions
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "cmepwamtx000avvlpkuakhjcd",
+  "planId": "cmepwamtx000gvvlpkuakhjcd",
+  "reason": "Testing duplicate subscription creation"
+}
+
+### 22. Force Cancel - Invalid Subscription ID
+DELETE {{baseUrl}}/admin/subscriptions/invalid-id/force-cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Test invalid ID"
+}
+
+### 23. Process Refund - Amount Too High
+POST {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/refund
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 15000000,
+  "reason": "Testing maximum amount validation",
+  "refundType": "PARTIAL"
+}
+
+### 24. Process Refund - Amount Too Low
+POST {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/refund
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 500,
+  "reason": "Testing minimum amount validation",
+  "refundType": "PARTIAL"
+}
+
+### 25. Extend Subscription - Invalid Days
+PUT {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/extend
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "extensionDays": 0,
+  "reason": "Testing invalid extension days"
+}
+
+### 26. Extend Subscription - Too Many Days
+PUT {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/extend
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "extensionDays": 400,
+  "reason": "Testing maximum extension days validation"
+}
+
+### 27. Access Without Admin Role (should fail)
+GET {{baseUrl}}/admin/subscriptions
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWVwdmFtdHgwMDBhdnZscGt1YWtoamNkIiwicm9sZSI6IlVTRVIiLCJpYXQiOjE3MjQ1MTI4MDAsImV4cCI6MTcyNDU5OTIwMH0.example
+Content-Type: application/json
+
+### Validation Test Cases
+
+### 28. Create Subscription - Short Reason
+POST {{baseUrl}}/admin/subscriptions
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "userId": "cmepwamtx000avvlpkuakhjcd",
+  "planId": "cmepwamtx000gvvlpkuakhjcd",
+  "reason": "Short"
+}
+
+### 29. Force Cancel - Missing Reason
+DELETE {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/force-cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "terminateInstances": true
+}
+
+### 30. Force Cancel - Reason Too Short
+DELETE {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/force-cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Short",
+  "terminateInstances": true
+}
+
+### 31. Process Refund - Missing Amount
+POST {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/refund
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Testing missing amount validation",
+  "refundType": "PARTIAL"
+}
+
+### 32. Process Refund - Invalid Refund Type
+POST {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/refund
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 50000,
+  "reason": "Testing invalid refund type",
+  "refundType": "INVALID_TYPE"
+}
+
+### 33. Extend Subscription - Missing Extension Days
+PUT {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/extend
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Testing missing extension days"
+}
+### 34. Admin Upgrade Subscription (Regular - with credit check)
+PUT {{baseUrl}}/admin/subscriptions/{{subscriptionId}}/upgrade
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "newPlanId": "{{proPlanId}}",
+  "skipCreditCheck": false,
+  "reason": "Admin upgrade to PRO plan - user requested higher resources"
+}
+
+### 35. Admin Upgrade Subscription (Bonus - skip credit check)
+PUT {{baseUrl}}/admin/subscriptions/{{subscriptionId}}/upgrade
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "newPlanId": "{{premiumPlanId}}",
+  "skipCreditCheck": true,
+  "reason": "Bonus upgrade to PREMIUM plan - customer loyalty reward"
+}
+
+### 36. Admin Upgrade Subscription - Invalid Plan (Different Service)
+PUT {{baseUrl}}/admin/subscriptions/{{subscriptionId}}/upgrade
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "newPlanId": "{{ghostBasicPlanId}}",
+  "skipCreditCheck": false,
+  "reason": "Attempting to upgrade to different service"
+}
+
+### 37. Admin Upgrade Subscription - Downgrade Attempt (Should Fail)
+PUT {{baseUrl}}/admin/subscriptions/{{subscriptionId}}/upgrade
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "newPlanId": "{{freePlanId}}",
+  "skipCreditCheck": false,
+  "reason": "Attempting to downgrade to FREE plan"
+}
+
+### 38. Admin Upgrade Subscription - Insufficient Credit (Should Fail)
+PUT {{baseUrl}}/admin/subscriptions/{{lowCreditUserSubscriptionId}}/upgrade
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "newPlanId": "{{enterprisePlanId}}",
+  "skipCreditCheck": false,
+  "reason": "Upgrade attempt with insufficient credit"
+}
+
+### 39. Admin Upgrade Subscription - Missing Required Fields
+PUT {{baseUrl}}/admin/subscriptions/{{subscriptionId}}/upgrade
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "skipCreditCheck": false,
+  "reason": "Missing newPlanId field"
+}
+
+### 40. Admin Upgrade Subscription - Invalid Subscription ID
+PUT {{baseUrl}}/admin/subscriptions/invalid-subscription-id/upgrade
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "newPlanId": "{{proPlanId}}",
+  "skipCreditCheck": false,
+  "reason": "Upgrade with invalid subscription ID"
+}
+
+### 41. Admin Upgrade Subscription - Unauthorized (User Token)
+PUT {{baseUrl}}/admin/subscriptions/{{subscriptionId}}/upgrade
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "newPlanId": "{{proPlanId}}",
+  "skipCreditCheck": false,
+  "reason": "Unauthorized upgrade attempt"
+}
