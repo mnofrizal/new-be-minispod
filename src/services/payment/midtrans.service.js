@@ -51,6 +51,7 @@ class MidtransService {
         order_id: transaction.id,
         gross_amount: amount,
       },
+      // enabled_payments: ["other_qris"],
       customer_details: {
         first_name: user.name,
         email: user.email,
@@ -71,7 +72,10 @@ class MidtransService {
         error: process.env.MIDTRANS_ERROR_URL,
       },
       expiry: {
-        start_time: new Date().toISOString(),
+        start_time:
+          new Date()
+            .toLocaleString("sv-SE", { timeZone: "Asia/Jakarta" })
+            .replace("T", " ") + " +0700",
         unit: "minutes",
         duration: 60, // 1 hour expiry
       },
@@ -172,49 +176,66 @@ class MidtransService {
         newStatus = "PENDING";
       }
 
-      // Update transaction status
-      const updatedTransaction = await prisma.transaction.update({
-        where: { id: orderId },
-        data: {
-          status: newStatus,
-          completedAt: shouldCreditAccount ? new Date() : null,
-          metadata: {
-            ...transaction.metadata,
-            midtrans_status: transactionStatus,
-            midtrans_fraud_status: fraudStatus,
-            midtrans_payment_type: paymentType,
-            midtrans_transaction_time: transactionTime,
-            notification_received_at: new Date().toISOString(),
-          },
-        },
-      });
-
-      // Credit user account if payment successful
+      // Process transaction based on status
       if (shouldCreditAccount && transaction.type === "TOP_UP") {
-        await creditService.addCredit(
-          transaction.userId,
-          transaction.amount,
-          `Credit top-up via ${paymentType}`,
-          {
-            type: "TOP_UP",
-            status: "COMPLETED",
-            paymentMethod: transaction.paymentMethod,
-            paymentReference: transaction.paymentReference,
-            midtransTransactionId: statusResponse.transaction_id,
-            paymentType,
-          }
-        );
+        // Use database transaction to ensure atomicity for successful payments
+        await prisma.$transaction(async (tx) => {
+          // Get current user balance
+          const user = await tx.user.findUnique({
+            where: { id: transaction.userId },
+            select: {
+              id: true,
+              creditBalance: true,
+              totalTopUp: true,
+            },
+          });
 
-        // Update transaction with new balance
-        const updatedUser = await prisma.user.findUnique({
-          where: { id: transaction.userId },
-          select: { creditBalance: true },
+          const balanceBefore = Number(user.creditBalance);
+          const balanceAfter = balanceBefore + Number(transaction.amount);
+
+          // Update user balance and total top-up
+          await tx.user.update({
+            where: { id: transaction.userId },
+            data: {
+              creditBalance: balanceAfter,
+              totalTopUp: { increment: transaction.amount },
+            },
+          });
+
+          // Update the existing transaction record with completion details
+          await tx.transaction.update({
+            where: { id: orderId },
+            data: {
+              status: "COMPLETED",
+              balanceAfter: balanceAfter,
+              completedAt: new Date(),
+              metadata: {
+                ...transaction.metadata,
+                midtrans_status: transactionStatus,
+                midtrans_fraud_status: fraudStatus,
+                midtrans_payment_type: paymentType,
+                midtrans_transaction_time: transactionTime,
+                midtrans_transaction_id: statusResponse.transaction_id,
+                notification_received_at: new Date().toISOString(),
+              },
+            },
+          });
         });
-
+      } else {
+        // Update transaction status for non-successful or non-topup transactions
         await prisma.transaction.update({
           where: { id: orderId },
           data: {
-            balanceAfter: updatedUser.creditBalance,
+            status: newStatus,
+            completedAt: shouldCreditAccount ? new Date() : null,
+            metadata: {
+              ...transaction.metadata,
+              midtrans_status: transactionStatus,
+              midtrans_fraud_status: fraudStatus,
+              midtrans_payment_type: paymentType,
+              midtrans_transaction_time: transactionTime,
+              notification_received_at: new Date().toISOString(),
+            },
           },
         });
       }

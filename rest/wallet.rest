@@ -1,0 +1,405 @@
+### Wallet Management API Testing
+### Base URL: http://localhost:3000/api
+
+# Variables
+@baseUrl = http://localhost:3000/api
+@authToken = {{admin_login.response.body.data.accessToken}}
+@userId = 01HBRDF0LTJN2K2NK4BN8FAZGR
+@transactionId = 01HBRDF0LTJN2K2NK4BN8FAZGR
+
+  
+### Admin Login
+# @name admin_login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+### 1. Get Wallet Information
+GET {{baseUrl}}/wallet/info
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Expected Response:
+# {
+#   "success": true,
+#   "message": "Wallet information retrieved successfully",
+#   "data": {
+#     "wallet": {
+#       "userId": "string",
+#       "userName": "string",
+#       "email": "string",
+#       "creditBalance": 0,
+#       "totalTopUp": 0,
+#       "totalSpent": 0,
+#       "monthlySpending": 0,
+#       "netBalance": 0,
+#       "memberSince": "date",
+#       "recentTransactions": []
+#     }
+#   }
+# }
+
+### 2. Get Transaction History (Default)
+GET {{baseUrl}}/wallet/transactions
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### 3. Get Transaction History (With Filters)
+GET {{baseUrl}}/wallet/transactions?page=1&limit=10&type=TOP_UP&status=COMPLETED&startDate=2024-01-01&endDate=2024-12-31
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### 4. Get Available Payment Methods
+GET {{baseUrl}}/wallet/payment-methods
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Expected Response:
+# {
+#   "success": true,
+#   "message": "Payment methods retrieved successfully",
+#   "data": {
+#     "paymentMethods": [
+#       {
+#         "type": "BANK_TRANSFER",
+#         "name": "Bank Transfer",
+#         "description": "Transfer via BCA, BNI, BRI, Mandiri",
+#         "icon": "bank",
+#         "processingTime": "Instant verification"
+#       },
+#       {
+#         "type": "E_WALLET",
+#         "name": "E-Wallet",
+#         "description": "GoPay, OVO, DANA, LinkAja",
+#         "icon": "wallet",
+#         "processingTime": "Instant"
+#       }
+#     ]
+#   }
+# }
+
+### 5. Create Top-Up Transaction (Bank Transfer)
+POST {{baseUrl}}/wallet/topup
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "amount": 100000,
+  "paymentMethod": "BANK_TRANSFER"
+}
+
+### Expected Response:
+# {
+#   "success": true,
+#   "message": "Top-up transaction created successfully",
+#   "data": {
+#     "transaction": {
+#       "transactionId": "uuid",
+#       "snapToken": "string",
+#       "redirectUrl": "string",
+#       "amount": 100000,
+#       "paymentMethod": "BANK_TRANSFER",
+#       "expiryTime": "date"
+#     }
+#   }
+# }
+
+### 6. Create Top-Up Transaction (E-Wallet)
+POST {{baseUrl}}/wallet/topup
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "amount": 50000,
+  "paymentMethod": "E_WALLET"
+}
+
+### 7. Create Top-Up Transaction (Credit Card)
+POST {{baseUrl}}/wallet/topup
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "amount": 200000,
+  "paymentMethod": "CREDIT_CARD"
+}
+
+### 8. Create Top-Up Transaction (QRIS)
+POST {{baseUrl}}/wallet/topup
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "amount": 75000,
+  "paymentMethod": "QRIS"
+}
+
+### 9. Invalid Top-Up (Below Minimum)
+POST {{baseUrl}}/wallet/topup
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "amount": 5000,
+  "paymentMethod": "BANK_TRANSFER"
+}
+
+### Expected Response:
+# {
+#   "success": false,
+#   "message": "Minimum top-up amount is Rp 10,000"
+# }
+
+### 10. Invalid Top-Up (Above Maximum)
+POST {{baseUrl}}/wallet/topup
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "amount": 15000000,
+  "paymentMethod": "BANK_TRANSFER"
+}
+
+### 11. Invalid Payment Method
+POST {{baseUrl}}/wallet/topup
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "amount": 100000,
+  "paymentMethod": "INVALID_METHOD"
+}
+
+### 12. Check Transaction Status
+GET {{baseUrl}}/wallet/transactions/cmebgi9i70003y90sqltvmqko/status
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Expected Response:
+# {
+#   "success": true,
+#   "message": "Transaction status retrieved successfully",
+#   "data": {
+#     "transaction": {
+#       "id": "uuid",
+#       "status": "PENDING",
+#       "amount": 100000,
+#       "type": "TOP_UP",
+#       "description": "string",
+#       "createdAt": "date",
+#       "completedAt": null,
+#       "midtransStatus": {
+#         "transactionId": "string",
+#         "status": "pending",
+#         "paymentType": "bank_transfer"
+#       }
+#     }
+#   }
+# }
+
+### 13. Cancel Pending Transaction
+POST {{baseUrl}}/wallet/transactions/{{transactionId}}/cancel
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Expected Response:
+# {
+#   "success": true,
+#   "message": "Transaction cancelled successfully"
+# }
+
+### 14. Get Wallet Statistics (Default - Monthly)
+GET {{baseUrl}}/wallet/statistics
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### 15. Get Wallet Statistics (Daily)
+GET {{baseUrl}}/wallet/statistics?period=day
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### 16. Get Wallet Statistics (Weekly)
+GET {{baseUrl}}/wallet/statistics?period=week
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### 17. Get Wallet Statistics (Yearly)
+GET {{baseUrl}}/wallet/statistics?period=year
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### 18. Check Credit Sufficiency (Sufficient)
+POST {{baseUrl}}/wallet/check-credit
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "amount": 50000
+}
+
+### Expected Response:
+# {
+#   "success": true,
+#   "message": "Credit check completed",
+#   "data": {
+#     "creditCheck": {
+#       "userId": "string",
+#       "userName": "string",
+#       "currentBalance": 100000,
+#       "requiredAmount": 50000,
+#       "hasSufficientCredit": true,
+#       "shortfall": 0
+#     }
+#   }
+# }
+
+### 19. Check Credit Sufficiency (Insufficient)
+POST {{baseUrl}}/wallet/check-credit
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "amount": 5000000
+}
+
+### Expected Response:
+# {
+#   "success": true,
+#   "message": "Credit check completed",
+#   "data": {
+#     "creditCheck": {
+#       "userId": "string",
+#       "userName": "string",
+#       "currentBalance": 100000,
+#       "requiredAmount": 500000,
+#       "hasSufficientCredit": false,
+#       "shortfall": 400000
+#     }
+#   }
+# }
+
+### 20. Invalid Credit Check (Zero Amount)
+POST {{baseUrl}}/wallet/check-credit
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "amount": 0
+}
+
+### 21. Invalid Credit Check (Negative Amount)
+POST {{baseUrl}}/wallet/check-credit
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "amount": -1000
+}
+
+### 22. Midtrans Webhook (Successful Payment)
+POST {{baseUrl}}/wallet/webhook/midtrans
+Content-Type: application/json
+
+{
+  "order_id": "{{transactionId}}",
+  "transaction_status": "settlement",
+  "fraud_status": "accept",
+  "payment_type": "bank_transfer",
+  "transaction_time": "2024-01-15 10:30:00",
+  "signature_key": "example_signature",
+  "gross_amount": "100000.00",
+  "currency": "IDR"
+}
+
+### Expected Response:
+# {
+#   "success": true,
+#   "message": "Notification processed"
+# }
+
+### 23. Midtrans Webhook (Failed Payment)
+POST {{baseUrl}}/wallet/webhook/midtrans
+Content-Type: application/json
+
+{
+  "order_id": "{{transactionId}}",
+  "transaction_status": "deny",
+  "fraud_status": "deny",
+  "payment_type": "credit_card",
+  "transaction_time": "2024-01-15 10:30:00",
+  "signature_key": "example_signature",
+  "gross_amount": "100000.00",
+  "currency": "IDR"
+}
+
+### 24. Midtrans Webhook (Pending Payment)
+POST {{baseUrl}}/wallet/webhook/midtrans
+Content-Type: application/json
+
+{
+  "order_id": "{{transactionId}}",
+  "transaction_status": "pending",
+  "fraud_status": null,
+  "payment_type": "bank_transfer",
+  "transaction_time": "2024-01-15 10:30:00",
+  "signature_key": "example_signature",
+  "gross_amount": "100000.00",
+  "currency": "IDR"
+}
+
+### 25. Test Without Authentication (Should Fail)
+GET {{baseUrl}}/wallet/info
+Content-Type: application/json
+
+### Expected Response:
+# {
+#   "success": false,
+#   "message": "Access token is required"
+# }
+
+### 26. Test With Invalid Token (Should Fail)
+GET {{baseUrl}}/wallet/info
+Authorization: Bearer invalid_token
+Content-Type: application/json
+
+### Expected Response:
+# {
+#   "success": false,
+#   "message": "Invalid token"
+# }
+
+### 27. Test Invalid Transaction ID Format
+GET {{baseUrl}}/wallet/transactions/invalid-uuid/status
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Expected Response:
+# {
+#   "success": false,
+#   "message": "Transaction ID must be a valid UUID"
+# }
+
+### 28. Test Non-existent Transaction
+GET {{baseUrl}}/wallet/transactions/01HBRDF0LTJN2K2NK4BN8FAZFF/status
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Expected Response:
+# {
+#   "success": false,
+#   "message": "Transaction not found"
+# }
+
+### Sample Test Flow:
+### 1. Get current wallet info
+### 2. Get available payment methods
+### 3. Create a top-up transaction
+### 4. Check transaction status
+### 5. Simulate Midtrans webhook for successful payment
+### 6. Verify updated wallet balance
+### 7. Get transaction history
+### 8. Check credit sufficiency for subscription

@@ -2,6 +2,7 @@ import express from "express";
 import authRoutes from "./auth.routes.js";
 import userProfileRoutes from "./user/profile.routes.js";
 import catalogRoutes from "./catalog.routes.js";
+import walletRoutes from "./wallet.routes.js";
 import adminUserRoutes from "./admin/users.routes.js";
 import adminK8sNodeRoutes from "./admin/k8s/node.routes.js";
 import adminK8sNamespaceRoutes from "./admin/k8s/namespace.routes.js";
@@ -17,6 +18,9 @@ router.use("/auth", authRoutes);
 
 // Protected catalog routes (authentication required)
 router.use("/catalog", catalogRoutes);
+
+// Wallet routes (authentication required)
+router.use("/wallet", walletRoutes);
 
 // User routes (protected)
 router.use("/user", userProfileRoutes);
