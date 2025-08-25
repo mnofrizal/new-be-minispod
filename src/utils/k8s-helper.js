@@ -496,7 +496,7 @@ const deleteIngress = async (name, namespace) => {
  * @param {number} timeoutMs - Timeout in milliseconds
  * @returns {Promise<Object>} Readiness result
  */
-const waitForDeploymentReady = async (name, namespace, timeoutMs = 600000) => {
+const waitForDeploymentReady = async (name, namespace, timeoutMs = 3000000) => {
   const appsV1Api = getAppsV1ApiClient();
   const startTime = Date.now();
 

@@ -1,7 +1,19 @@
 ### Variables
 @baseUrl = http://localhost:3000/api
-@admin_jwt_token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluMTIzIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJBRE1JTklTVFJBVE9SIiwiaWF0IjoxNjk5MDA5MjAwLCJleHAiOjE2OTkwOTU2MDB9.example
-@instanceId = cluser123-instance-id
+
+@instanceId = cmer1d9an0005vvw8qjp72h65
+
+@admin_jwt_token = {{admin_login.response.body.data.accessToken}}
+
+### Admin Login
+# @name admin_login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
 
 ### ==============================================
 ### ADMIN HEALTH MONITORING ENDPOINTS

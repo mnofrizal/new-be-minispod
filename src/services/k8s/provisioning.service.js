@@ -227,7 +227,7 @@ const provisionKubernetesResources = async (
     const readyResult = await k8sHelper.waitForDeploymentReady(
       instance.deploymentName,
       instance.namespace,
-      60000 // 1 minutes timeout
+      300000 // 5 minutes timeout
     );
 
     if (!readyResult.ready) {
