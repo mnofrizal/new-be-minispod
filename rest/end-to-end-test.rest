@@ -1,0 +1,347 @@
+### Variables
+@baseUrl = http://localhost:3000/api
+@user_jwt_token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNsdXNlcjEyMyIsImVtYWlsIjoidXNlckBleGFtcGxlLmNvbSIsInJvbGUiOiJVU0VSIiwiaWF0IjoxNjk5MDA5MjAwLCJleHAiOjE2OTkwOTU2MDB9.example
+@admin_jwt_token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluMTIzIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJBRE1JTklTVFJBVE9SIiwiaWF0IjoxNjk5MDA5MjAwLCJleHAiOjE2OTkwOTU2MDB9.example
+
+# These will be populated during the test flow
+@serviceId = 
+@planId = 
+@subscriptionId = 
+@instanceId = 
+@transactionId = 
+
+### ==============================================
+### END-TO-END SUBSCRIPTION TO DEPLOYMENT FLOW
+### ==============================================
+
+### PHASE 1: SETUP AND DISCOVERY
+### ============================================
+
+### 1.1 Check API Health
+GET {{baseUrl}}/health
+
+### 1.2 Browse Service Catalog
+GET {{baseUrl}}/catalog/categories
+Authorization: Bearer {{user_jwt_token}}
+
+### 1.3 Get Available Services
+GET {{baseUrl}}/catalog/services
+Authorization: Bearer {{user_jwt_token}}
+
+### 1.4 Get Service Plans (Replace with actual service slug)
+GET {{baseUrl}}/catalog/services/n8n-automation/plans
+Authorization: Bearer {{user_jwt_token}}
+
+### 1.5 Check User Wallet Balance
+GET {{baseUrl}}/wallet/info
+Authorization: Bearer {{user_jwt_token}}
+
+### PHASE 2: CREDIT TOP-UP (IF NEEDED)
+### ===================================
+
+### 2.1 Create Top-Up Transaction (if balance insufficient)
+POST {{baseUrl}}/wallet/topup
+Authorization: Bearer {{user_jwt_token}}
+Content-Type: application/json
+
+{
+  "amount": 100000,
+  "paymentMethod": "BANK_TRANSFER"
+}
+
+### 2.2 Check Transaction Status
+# GET {{baseUrl}}/wallet/transactions/{{transactionId}}/status
+# Authorization: Bearer {{user_jwt_token}}
+
+### 2.3 Simulate Payment Completion (Webhook - normally called by Midtrans)
+# POST {{baseUrl}}/wallet/webhook/midtrans
+# Content-Type: application/json
+# 
+# {
+#   "transaction_time": "2024-01-15 10:30:00",
+#   "transaction_status": "settlement",
+#   "order_id": "{{transactionId}}",
+#   "gross_amount": "100000.00",
+#   "fraud_status": "accept"
+# }
+
+### 2.4 Verify Updated Balance
+GET {{baseUrl}}/wallet/info
+Authorization: Bearer {{user_jwt_token}}
+
+### PHASE 3: SUBSCRIPTION CREATION
+### ===============================
+
+### 3.1 Validate Subscription Before Creation
+POST {{baseUrl}}/subscriptions/validate
+Authorization: Bearer {{user_jwt_token}}
+Content-Type: application/json
+
+{
+  "planId": "{{planId}}"
+}
+
+### 3.2 Create Subscription (This triggers automatic provisioning)
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer {{user_jwt_token}}
+Content-Type: application/json
+
+{
+  "planId": "{{planId}}"
+}
+
+### 3.3 Get Subscription Details
+GET {{baseUrl}}/subscriptions/{{subscriptionId}}
+Authorization: Bearer {{user_jwt_token}}
+
+### 3.4 Check User Subscriptions
+GET {{baseUrl}}/subscriptions
+Authorization: Bearer {{user_jwt_token}}
+
+### PHASE 4: SERVICE INSTANCE MONITORING
+### ====================================
+
+### 4.1 Get User Instances (Should show PENDING/PROVISIONING)
+GET {{baseUrl}}/instances
+Authorization: Bearer {{user_jwt_token}}
+
+### 4.2 Get Specific Instance Details
+GET {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{user_jwt_token}}
+
+### 4.3 Monitor Provisioning Progress (Repeat until RUNNING)
+GET {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{user_jwt_token}}
+
+### 4.4 Check Instance Logs (Once running)
+GET {{baseUrl}}/instances/{{instanceId}}/logs?lines=50
+Authorization: Bearer {{user_jwt_token}}
+
+### PHASE 5: ADMIN MONITORING
+### =========================
+
+### 5.1 Admin: Check Overall Health Summary
+GET {{baseUrl}}/admin/health/summary
+Authorization: Bearer {{admin_jwt_token}}
+
+### 5.2 Admin: Check Specific Instance Health
+GET {{baseUrl}}/admin/health/instances/{{instanceId}}
+Authorization: Bearer {{admin_jwt_token}}
+
+### 5.3 Admin: Check Kubernetes Pods
+GET {{baseUrl}}/admin/k8s/pods
+Authorization: Bearer {{admin_jwt_token}}
+
+### 5.4 Admin: Check Kubernetes Deployments
+GET {{baseUrl}}/admin/k8s/deployments
+Authorization: Bearer {{admin_jwt_token}}
+
+### 5.5 Admin: Check Kubernetes Services
+GET {{baseUrl}}/admin/k8s/services
+Authorization: Bearer {{admin_jwt_token}}
+
+### 5.6 Admin: Check Kubernetes Ingresses
+GET {{baseUrl}}/admin/k8s/ingresses
+Authorization: Bearer {{admin_jwt_token}}
+
+### 5.7 Admin: Get Health Statistics
+GET {{baseUrl}}/admin/health/stats?timeRange=1h
+Authorization: Bearer {{admin_jwt_token}}
+
+### PHASE 6: SERVICE MANAGEMENT
+### ============================
+
+### 6.1 Test Service Restart
+POST {{baseUrl}}/instances/{{instanceId}}/restart
+Authorization: Bearer {{user_jwt_token}}
+
+### 6.2 Monitor After Restart
+GET {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{user_jwt_token}}
+
+### 6.3 Check Service Logs After Restart
+GET {{baseUrl}}/instances/{{instanceId}}/logs?lines=100
+Authorization: Bearer {{user_jwt_token}}
+
+### PHASE 7: SUBSCRIPTION UPGRADE TEST
+### ==================================
+
+### 7.1 Get Available Plans for Upgrade
+GET {{baseUrl}}/catalog/services/n8n-automation/plans
+Authorization: Bearer {{user_jwt_token}}
+
+### 7.2 Upgrade Subscription (This should update instance resources)
+PUT {{baseUrl}}/subscriptions/{{subscriptionId}}/upgrade
+Authorization: Bearer {{user_jwt_token}}
+Content-Type: application/json
+
+{
+  "newPlanId": "higher-tier-plan-id"
+}
+
+### 7.3 Verify Instance Update
+GET {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{user_jwt_token}}
+
+### 7.4 Admin: Verify Resource Update in Kubernetes
+GET {{baseUrl}}/admin/k8s/deployments
+Authorization: Bearer {{admin_jwt_token}}
+
+### PHASE 8: HEALTH MONITORING VERIFICATION
+### ========================================
+
+### 8.1 Admin: Run Manual Health Check
+POST {{baseUrl}}/admin/health/check
+Authorization: Bearer {{admin_jwt_token}}
+
+### 8.2 Verify Health Status Updated
+GET {{baseUrl}}/admin/health/summary
+Authorization: Bearer {{admin_jwt_token}}
+
+### 8.3 Check Instance Health Details
+GET {{baseUrl}}/admin/health/instances/{{instanceId}}
+Authorization: Bearer {{admin_jwt_token}}
+
+### PHASE 9: CLEANUP (OPTIONAL)
+### =============================
+
+### 9.1 Cancel Subscription (Disables auto-renew)
+DELETE {{baseUrl}}/subscriptions/{{subscriptionId}}
+Authorization: Bearer {{user_jwt_token}}
+
+### 9.2 Terminate Service Instance
+DELETE {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{user_jwt_token}}
+
+### 9.3 Verify Cleanup in Kubernetes
+GET {{baseUrl}}/admin/k8s/pods
+Authorization: Bearer {{admin_jwt_token}}
+
+### 9.4 Final Health Check
+GET {{baseUrl}}/admin/health/summary
+Authorization: Bearer {{admin_jwt_token}}
+
+### ==============================================
+### VERIFICATION CHECKLIST
+### ==============================================
+
+# ✅ Phase 1: Service Discovery
+# - [ ] API health check passes
+# - [ ] Service catalog loads successfully
+# - [ ] Service plans are available
+# - [ ] User wallet info accessible
+
+# ✅ Phase 2: Payment Processing
+# - [ ] Top-up transaction created
+# - [ ] Payment webhook processed
+# - [ ] User balance updated correctly
+
+# ✅ Phase 3: Subscription Creation
+# - [ ] Subscription validation passes
+# - [ ] Subscription created successfully
+# - [ ] Credit deducted from user balance
+# - [ ] Quota allocated for service plan
+
+# ✅ Phase 4: Service Provisioning
+# - [ ] Service instance created automatically
+# - [ ] Instance status progresses: PENDING → PROVISIONING → RUNNING
+# - [ ] Kubernetes resources created (namespace, deployment, service, ingress)
+# - [ ] Instance accessible via public URL
+
+# ✅ Phase 5: Health Monitoring
+# - [ ] Health checks detect running instance
+# - [ ] Resource metrics collected
+# - [ ] Health status updated in database
+# - [ ] Admin monitoring shows healthy status
+
+# ✅ Phase 6: Service Management
+# - [ ] Instance restart functionality works
+# - [ ] Logs accessible and meaningful
+# - [ ] Service remains healthy after operations
+
+# ✅ Phase 7: Subscription Upgrades
+# - [ ] Upgrade validation works
+# - [ ] Subscription upgraded successfully
+# - [ ] Instance resources updated in Kubernetes
+# - [ ] Prorated billing calculated correctly
+
+# ✅ Phase 8: Administrative Monitoring
+# - [ ] Admin health dashboard functional
+# - [ ] Kubernetes resource monitoring accurate
+# - [ ] Health statistics meaningful
+# - [ ] Manual health checks work
+
+# ✅ Phase 9: Cleanup and Termination
+# - [ ] Subscription cancellation works
+# - [ ] Instance termination successful
+# - [ ] Kubernetes resources cleaned up
+# - [ ] Quota released properly
+
+### ==============================================
+### INTEGRATION POINTS VERIFIED
+### ==============================================
+
+# 🔗 Subscription Service ↔ Provisioning Service
+# - Automatic provisioning triggered on subscription creation
+# - Instance lifecycle tied to subscription status
+
+# 🔗 Provisioning Service ↔ Kubernetes Cluster
+# - Resources created with proper templates
+# - Resource limits applied from service plans
+# - Health probes configured correctly
+
+# 🔗 Health Service ↔ Kubernetes Metrics
+# - Resource usage collected accurately
+# - Pod status monitored continuously
+# - Deployment readiness tracked
+
+# 🔗 Credit Service ↔ Subscription Service
+# - Credit validation before subscription
+# - Automatic deduction on subscription creation
+# - Prorated billing for upgrades
+
+# 🔗 Quota Service ↔ Provisioning Service
+# - Quota checked before provisioning
+# - Quota allocated on successful provisioning
+# - Quota released on instance termination
+
+### ==============================================
+### EXPECTED KUBERNETES RESOURCES
+### ==============================================
+
+# For each service instance, the following should be created:
+# 
+# 📦 Namespace: user-{userId}
+# 🗂️ ConfigMap: {instanceName}-config
+# 💾 PVC: {instanceName}-pvc (if storage > 0)
+# 🚀 Deployment: {instanceName}
+# 🌐 Service: {instanceName}-svc
+# 🔗 Ingress: {instanceName}-ingress
+# 
+# Labels applied to all resources:
+# - app: {serviceSlug}
+# - instance: {instanceId}
+# - minispod.com/managed: "true"
+
+### ==============================================
+### TROUBLESHOOTING GUIDE
+### ==============================================
+
+# If provisioning fails:
+# 1. Check Kubernetes cluster connectivity
+# 2. Verify namespace creation permissions
+# 3. Check resource quotas and limits
+# 4. Review service template configuration
+# 5. Check ingress controller availability
+
+# If health checks fail:
+# 1. Verify Kubernetes metrics API availability
+# 2. Check pod readiness and liveness probes
+# 3. Verify service endpoints are accessible
+# 4. Check ingress configuration and DNS
+
+# If upgrades fail:
+# 1. Verify new plan availability and quotas
+# 2. Check Kubernetes deployment update permissions
+# 3. Verify resource limit changes are valid
+# 4. Check for conflicting resource constraints

@@ -1,0 +1,220 @@
+### Variables
+@baseUrl = http://localhost:3000/api
+@admin_jwt_token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImFkbWluMTIzIiwiZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInJvbGUiOiJBRE1JTklTVFJBVE9SIiwiaWF0IjoxNjk5MDA5MjAwLCJleHAiOjE2OTkwOTU2MDB9.example
+@instanceId = cluser123-instance-id
+
+### ==============================================
+### ADMIN HEALTH MONITORING ENDPOINTS
+### ==============================================
+
+### 1. Get Health Summary
+GET {{baseUrl}}/admin/health/summary
+Authorization: Bearer {{admin_jwt_token}}
+
+### 2. Run Manual Health Check
+POST {{baseUrl}}/admin/health/check
+Authorization: Bearer {{admin_jwt_token}}
+
+### 3. Get Specific Instance Health
+GET {{baseUrl}}/admin/health/instances/{{instanceId}}
+Authorization: Bearer {{admin_jwt_token}}
+
+### 4. Get Health Statistics (24h)
+GET {{baseUrl}}/admin/health/stats
+Authorization: Bearer {{admin_jwt_token}}
+
+### 5. Get Health Statistics (1h)
+GET {{baseUrl}}/admin/health/stats?timeRange=1h
+Authorization: Bearer {{admin_jwt_token}}
+
+### 6. Get Health Statistics (6h)
+GET {{baseUrl}}/admin/health/stats?timeRange=6h
+Authorization: Bearer {{admin_jwt_token}}
+
+### 7. Get Health Statistics (7d)
+GET {{baseUrl}}/admin/health/stats?timeRange=7d
+Authorization: Bearer {{admin_jwt_token}}
+
+### ==============================================
+### INTEGRATION WITH K8S MONITORING
+### ==============================================
+
+### Check Kubernetes Pods Status
+GET {{baseUrl}}/admin/k8s/pods
+Authorization: Bearer {{admin_jwt_token}}
+
+### Check Kubernetes Deployments Status
+GET {{baseUrl}}/admin/k8s/deployments
+Authorization: Bearer {{admin_jwt_token}}
+
+### Check Kubernetes Services Status
+GET {{baseUrl}}/admin/k8s/services
+Authorization: Bearer {{admin_jwt_token}}
+
+### Check Kubernetes Ingresses Status
+GET {{baseUrl}}/admin/k8s/ingresses
+Authorization: Bearer {{admin_jwt_token}}
+
+### ==============================================
+### ERROR HANDLING TESTS
+### ==============================================
+
+### Test 1: Access health endpoints without admin role (should fail)
+GET {{baseUrl}}/admin/health/summary
+
+### Test 2: Get health for non-existent instance
+GET {{baseUrl}}/admin/health/instances/non-existent-instance-id
+Authorization: Bearer {{admin_jwt_token}}
+
+### Test 3: Get health stats with invalid time range
+GET {{baseUrl}}/admin/health/stats?timeRange=invalid
+Authorization: Bearer {{admin_jwt_token}}
+
+### ==============================================
+### MONITORING WORKFLOW TESTS
+### ==============================================
+
+### Workflow 1: Complete Health Monitoring Check
+### Step 1: Get current health summary
+GET {{baseUrl}}/admin/health/summary
+Authorization: Bearer {{admin_jwt_token}}
+
+### Step 2: Run manual health check
+POST {{baseUrl}}/admin/health/check
+Authorization: Bearer {{admin_jwt_token}}
+
+### Step 3: Get updated health summary
+GET {{baseUrl}}/admin/health/summary
+Authorization: Bearer {{admin_jwt_token}}
+
+### Step 4: Get detailed statistics
+GET {{baseUrl}}/admin/health/stats?timeRange=1h
+Authorization: Bearer {{admin_jwt_token}}
+
+### Workflow 2: Instance-Specific Health Check
+### Step 1: Get all instances
+GET {{baseUrl}}/instances
+Authorization: Bearer {{admin_jwt_token}}
+
+### Step 2: Check specific instance health
+GET {{baseUrl}}/admin/health/instances/{{instanceId}}
+Authorization: Bearer {{admin_jwt_token}}
+
+### Step 3: Compare with K8s pod status
+GET {{baseUrl}}/admin/k8s/pods
+Authorization: Bearer {{admin_jwt_token}}
+
+### ==============================================
+### PERFORMANCE MONITORING TESTS
+### ==============================================
+
+### Test 1: Multiple health summary requests
+GET {{baseUrl}}/admin/health/summary
+Authorization: Bearer {{admin_jwt_token}}
+
+###
+GET {{baseUrl}}/admin/health/summary
+Authorization: Bearer {{admin_jwt_token}}
+
+###
+GET {{baseUrl}}/admin/health/summary
+Authorization: Bearer {{admin_jwt_token}}
+
+### Test 2: Different time range statistics
+GET {{baseUrl}}/admin/health/stats?timeRange=1h
+Authorization: Bearer {{admin_jwt_token}}
+
+###
+GET {{baseUrl}}/admin/health/stats?timeRange=6h
+Authorization: Bearer {{admin_jwt_token}}
+
+###
+GET {{baseUrl}}/admin/health/stats?timeRange=24h
+Authorization: Bearer {{admin_jwt_token}}
+
+###
+GET {{baseUrl}}/admin/health/stats?timeRange=7d
+Authorization: Bearer {{admin_jwt_token}}
+
+### ==============================================
+### COMPREHENSIVE SYSTEM HEALTH CHECK
+### ==============================================
+
+### 1. Check API Health
+GET {{baseUrl}}/health
+
+### 2. Check Admin Health Summary
+GET {{baseUrl}}/admin/health/summary
+Authorization: Bearer {{admin_jwt_token}}
+
+### 3. Check Kubernetes Cluster Status
+GET {{baseUrl}}/admin/k8s/nodes
+Authorization: Bearer {{admin_jwt_token}}
+
+### 4. Check All Pods Status
+GET {{baseUrl}}/admin/k8s/pods
+Authorization: Bearer {{admin_jwt_token}}
+
+### 5. Check All Deployments Status
+GET {{baseUrl}}/admin/k8s/deployments
+Authorization: Bearer {{admin_jwt_token}}
+
+### 6. Check All Services Status
+GET {{baseUrl}}/admin/k8s/services
+Authorization: Bearer {{admin_jwt_token}}
+
+### 7. Check All Ingresses Status
+GET {{baseUrl}}/admin/k8s/ingresses
+Authorization: Bearer {{admin_jwt_token}}
+
+### 8. Run Complete Health Check
+POST {{baseUrl}}/admin/health/check
+Authorization: Bearer {{admin_jwt_token}}
+
+### 9. Get Final Health Statistics
+GET {{baseUrl}}/admin/health/stats?timeRange=24h
+Authorization: Bearer {{admin_jwt_token}}
+
+### ==============================================
+### NOTES
+### ==============================================
+
+# Health Monitoring Features:
+# - Real-time health status for all service instances
+# - Kubernetes resource monitoring integration
+# - Resource usage statistics (CPU, memory)
+# - Service-specific health metrics
+# - Historical health data analysis
+# - Automated health checks every 5 minutes
+
+# Health Status Indicators:
+# - Healthy: All systems operational
+# - Unhealthy: Issues detected (deployment not ready, pods failing, etc.)
+# - Unknown: Health check failed or incomplete data
+
+# Monitoring Metrics:
+# - Instance count by status
+# - Health percentage over time
+# - Resource usage statistics
+# - Service-specific health breakdown
+# - Kubernetes cluster health
+
+# Integration Points:
+# - Kubernetes Metrics API for resource usage
+# - Pod status and readiness checks
+# - Deployment rollout status
+# - Service endpoint availability
+# - Ingress configuration validation
+
+# Time Ranges Available:
+# - 1h: Last hour statistics
+# - 6h: Last 6 hours statistics  
+# - 24h: Last 24 hours statistics (default)
+# - 7d: Last 7 days statistics
+
+# Automated Features:
+# - Periodic health checks (5-minute intervals)
+# - Database health status updates
+# - Resource usage tracking
+# - Alert conditions detection
+# - Graceful degradation handling

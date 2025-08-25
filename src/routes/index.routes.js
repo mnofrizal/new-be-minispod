@@ -4,8 +4,10 @@ import userProfileRoutes from "./user/profile.routes.js";
 import catalogRoutes from "./catalog.routes.js";
 import walletRoutes from "./wallet.routes.js";
 import subscriptionRoutes from "./subscription.routes.js";
+import instanceRoutes from "./instance.routes.js";
 import adminUserRoutes from "./admin/users.routes.js";
 import adminSubscriptionRoutes from "./admin/subscription.routes.js";
+import adminHealthRoutes from "./admin/health.routes.js";
 import adminK8sNodeRoutes from "./admin/k8s/node.routes.js";
 import adminK8sNamespaceRoutes from "./admin/k8s/namespace.routes.js";
 import adminK8sDeploymentRoutes from "./admin/k8s/deployment.routes.js";
@@ -27,12 +29,16 @@ router.use("/wallet", walletRoutes);
 // Subscription routes (authentication required)
 router.use("/subscriptions", subscriptionRoutes);
 
+// Instance routes (authentication required)
+router.use("/instances", instanceRoutes);
+
 // User routes (protected)
 router.use("/user", userProfileRoutes);
 
 // Admin routes
 router.use("/admin/users", adminUserRoutes);
 router.use("/admin/subscriptions", adminSubscriptionRoutes);
+router.use("/admin/health", adminHealthRoutes);
 router.use("/admin/k8s/nodes", adminK8sNodeRoutes);
 router.use("/admin/k8s/namespaces", adminK8sNamespaceRoutes);
 router.use("/admin/k8s/deployments", adminK8sDeploymentRoutes);

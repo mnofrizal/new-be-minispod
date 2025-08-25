@@ -65,7 +65,18 @@ The backend follows a **layered architecture** pattern with clear separation of 
 
 - [`src/config/kubernetes.js`](src/config/kubernetes.js:1) - K8s client initialization and management
 - [`src/controllers/k8s/`](src/controllers/k8s/) - K8s resource controllers (pods, deployments, nodes, namespaces, ingresses, services)
-- [`src/services/k8s/`](src/services/k8s/) - K8s business logic, metrics collection, and network monitoring
+- [`src/services/k8s/`](src/services/k8s/) - K8s business logic, metrics collection, network monitoring, and service provisioning
+- [`src/utils/k8s-helper.js`](src/utils/k8s-helper.js:1) - Core Kubernetes API operations and utilities
+- [`src/config/k8s-templates.js`](src/config/k8s-templates.js:1) - Kubernetes manifest generation and templates
+
+### Service Provisioning & Instance Management
+
+- [`src/controllers/instance.controller.js`](src/controllers/instance.controller.js:1) - Service instance lifecycle management with 6 endpoints
+- [`src/routes/instance.routes.js`](src/routes/instance.routes.js:1) - JWT-authenticated instance management routes
+- [`src/validations/instance.validation.js`](src/validations/instance.validation.js:1) - Instance management validation schemas
+- [`src/services/k8s/provisioning.service.js`](src/services/k8s/provisioning.service.js:1) - Automated Kubernetes service deployment
+- [`src/services/k8s/health.service.js`](src/services/k8s/health.service.js:1) - Real-time service health monitoring
+- [`src/controllers/admin/health.controller.js`](src/controllers/admin/health.controller.js:1) - Admin health monitoring endpoints
 
 ### Database Layer
 
@@ -115,6 +126,10 @@ The backend follows a **layered architecture** pattern with clear separation of 
 - **Multi-API Support**: CoreV1Api, AppsV1Api, NetworkingV1Api, and MetricsV1beta1Api clients
 - **Error Handling**: Graceful degradation when K8s cluster is unavailable
 - **Multi-namespace Support**: Cross-namespace resource monitoring
+- **Service Provisioning**: Automated deployment of containerized services with full lifecycle management
+- **Resource Templates**: Dynamic Kubernetes manifest generation for various service types
+- **Deployment Readiness**: Industry best-practice readiness checks using deployment status conditions
+- **Resource Cleanup**: Automatic termination and cleanup on subscription cancellation
 
 ### Credit-Based Billing System
 
@@ -183,6 +198,23 @@ The backend follows a **layered architecture** pattern with clear separation of 
 5. Credit added → Direct database transaction with atomic balance update
 6. Transaction status updated → COMPLETED with proper balance tracking
 
+### Service Provisioning Flow
+
+1. User creates subscription → [`subscription.controller.js`](src/controllers/subscription.controller.js:1) → `createSubscription()`
+2. Subscription service → [`subscription.service.js`](src/services/subscription.service.js:15) → `createSubscription()`
+3. Automatic provisioning → [`provisioning.service.js`](src/services/k8s/provisioning.service.js:1) → `provisionService()`
+4. Kubernetes deployment → [`k8s-helper.js`](src/utils/k8s-helper.js:1) → Resource creation
+5. Health monitoring → [`health.service.js`](src/services/k8s/health.service.js:1) → Status tracking
+6. Instance record → Database → ServiceInstance model updated
+
+### Service Termination Flow
+
+1. User cancels subscription → [`subscription.controller.js`](src/controllers/subscription.controller.js:1) → `cancelSubscription()`
+2. Subscription service → [`subscription.service.js`](src/services/subscription.service.js:407) → `cancelSubscription()`
+3. Resource cleanup → [`provisioning.service.js`](src/services/k8s/provisioning.service.js:1) → `terminateServiceInstance()`
+4. Kubernetes deletion → [`k8s-helper.js`](src/utils/k8s-helper.js:1) → Resource removal
+5. Database cleanup → ServiceInstance status updated to TERMINATED
+
 ### Kubernetes Monitoring Flow
 
 1. Admin requests K8s data → [`k8s/*.controller.js`](src/controllers/k8s/)
@@ -226,6 +258,10 @@ Catalog Routes (to be implemented) → Catalog Controller (to be implemented) �
 
 [`routes/*`] → [`auth.js`](src/middleware/auth.js:6) → [`auth.service.js`](src/services/auth.service.js:189) → Controller
 
+### Service Instance Management Path
+
+[`instance.routes.js`](src/routes/instance.routes.js:1) → [`instance.controller.js`](src/controllers/instance.controller.js:1) → [`provisioning.service.js`](src/services/k8s/provisioning.service.js:1) → [`k8s-helper.js`](src/utils/k8s-helper.js:1) → K8s API
+
 ### K8s Resource Monitoring
 
 [`k8s.routes.js`] → [`k8s.controller.js`] → [`k8s.service.js`] → [`kubernetes.js`](src/config/kubernetes.js:46) → K8s API
@@ -256,3 +292,6 @@ All K8s endpoints follow the pattern: `GET /api/admin/k8s/{resource}` with admin
 - [`rest/admin/k8s-namespaces.rest`](rest/admin/k8s-namespaces.rest:1) - Namespace endpoint testing
 - [`rest/admin/k8s-ingresses.rest`](rest/admin/k8s-ingresses.rest:1) - Ingress endpoint testing
 - [`rest/admin/k8s-services.rest`](rest/admin/k8s-services.rest:1) - Service endpoint testing
+- [`rest/instance.rest`](rest/instance.rest:1) - Service instance management testing
+- [`rest/admin/health.rest`](rest/admin/health.rest:1) - Health monitoring endpoint testing
+- [`rest/end-to-end-test.rest`](rest/end-to-end-test.rest:1) - Complete subscription-to-deployment workflow testing

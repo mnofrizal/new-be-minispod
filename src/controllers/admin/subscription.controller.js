@@ -1,6 +1,7 @@
 import { StatusCodes } from "http-status-codes";
 import sendResponse from "../../utils/response.js";
 import subscriptionService from "../../services/subscription.service.js";
+import provisioningService from "../../services/k8s/provisioning.service.js";
 import creditService from "../../services/credit.service.js";
 import quotaService from "../../services/quota.service.js";
 import prisma from "../../utils/prisma.js";
@@ -228,6 +229,25 @@ const getAllSubscriptions = async (req, res) => {
               monthlyPrice: true,
             },
           },
+          instances: {
+            select: {
+              id: true,
+              name: true,
+              subdomain: true,
+              status: true,
+              healthStatus: true,
+              publicUrl: true,
+              adminUrl: true,
+              customDomain: true,
+              sslEnabled: true,
+              cpuUsage: true,
+              memoryUsage: true,
+              storageUsage: true,
+              createdAt: true,
+              lastStarted: true,
+              lastHealthCheck: true,
+            },
+          },
           _count: {
             select: {
               instances: true,
@@ -398,16 +418,21 @@ const forceCancelSubscription = async (req, res) => {
       // Always terminate instances (terminateInstances parameter kept for compatibility)
       let instancesTerminated = 0;
       if (subscription.instances.length > 0) {
-        await tx.serviceInstance.updateMany({
-          where: {
-            subscriptionId,
-            status: { in: ["RUNNING", "PENDING", "PROVISIONING"] },
-          },
-          data: {
-            status: "TERMINATED",
-          },
-        });
-        instancesTerminated = subscription.instances.length;
+        for (const instance of subscription.instances) {
+          try {
+            logger.info(
+              `Admin force-cancelling subscription, terminating instance: ${instance.id}`
+            );
+            await provisioningService.terminateServiceInstance(instance.id);
+            instancesTerminated++;
+          } catch (error) {
+            logger.error(
+              `Failed to terminate instance ${instance.id} during admin force-cancellation:`,
+              error
+            );
+            // Do not throw, continue to cancel the subscription
+          }
+        }
       }
 
       return {

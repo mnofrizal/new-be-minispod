@@ -1,0 +1,275 @@
+### Variables
+@baseUrl = http://localhost:3000/api
+@jwt_token = {{admin_login.response.body.data.accessToken}}
+@subscriptionId = cluser123-subscription-id
+@instanceId = cluser123-instance-id
+@planId = cluser123-plan-id
+
+
+# @name admin_login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+### ==============================================
+### INSTANCE MANAGEMENT ENDPOINTS
+### ==============================================
+
+### 1. Create Service Instance from Subscription
+POST {{baseUrl}}/instances
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "subscriptionId": "{{subscriptionId}}"
+}
+
+### 2. Get User's Service Instances
+GET {{baseUrl}}/instances
+Authorization: Bearer {{jwt_token}}
+
+### 3. Get User's Service Instances with Status Filter
+GET {{baseUrl}}/instances?status=RUNNING
+Authorization: Bearer {{jwt_token}}
+
+### 4. Get User's Service Instances Including Terminated
+GET {{baseUrl}}/instances?includeTerminated=true
+Authorization: Bearer {{jwt_token}}
+
+### 5. Get Service Instance Details
+GET {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### 6. Update Service Instance (Upgrade)
+PUT {{baseUrl}}/instances/{{instanceId}}/update
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "planId": "{{planId}}"
+}
+
+### 7. Get Instance Logs
+GET {{baseUrl}}/instances/{{instanceId}}/logs
+Authorization: Bearer {{jwt_token}}
+
+### 8. Get Instance Logs with Parameters
+GET {{baseUrl}}/instances/{{instanceId}}/logs?lines=50&follow=false
+Authorization: Bearer {{jwt_token}}
+
+### 9. Restart Service Instance
+POST {{baseUrl}}/instances/{{instanceId}}/restart
+Authorization: Bearer {{jwt_token}}
+
+### 10. Terminate Service Instance
+DELETE {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### ==============================================
+### INTEGRATION TEST SCENARIOS
+### ==============================================
+
+### Scenario 1: Complete Instance Lifecycle
+### Step 1: Create instance from subscription
+POST {{baseUrl}}/instances
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "subscriptionId": "{{subscriptionId}}"
+}
+
+### Step 2: Check instance status
+GET {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### Step 3: Get instance logs
+GET {{baseUrl}}/instances/{{instanceId}}/logs?lines=100
+Authorization: Bearer {{jwt_token}}
+
+### Step 4: Update instance (upgrade)
+PUT {{baseUrl}}/instances/{{instanceId}}/update
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "planId": "{{planId}}"
+}
+
+### Step 5: Restart instance
+POST {{baseUrl}}/instances/{{instanceId}}/restart
+Authorization: Bearer {{jwt_token}}
+
+### Step 6: Terminate instance
+DELETE {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### ==============================================
+### ERROR HANDLING TESTS
+### ==============================================
+
+### Test 1: Create instance without subscription ID
+POST {{baseUrl}}/instances
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+}
+
+### Test 2: Create instance with invalid subscription ID
+POST {{baseUrl}}/instances
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "subscriptionId": "invalid-subscription-id"
+}
+
+### Test 3: Get non-existent instance
+GET {{baseUrl}}/instances/non-existent-instance-id
+Authorization: Bearer {{jwt_token}}
+
+### Test 4: Update instance without plan ID
+PUT {{baseUrl}}/instances/{{instanceId}}/update
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+}
+
+### Test 5: Update instance with invalid plan ID
+PUT {{baseUrl}}/instances/{{instanceId}}/update
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "planId": "invalid-plan-id"
+}
+
+### Test 6: Access instance without authentication
+GET {{baseUrl}}/instances/{{instanceId}}
+
+### Test 7: Get instances with invalid status filter
+GET {{baseUrl}}/instances?status=INVALID_STATUS
+Authorization: Bearer {{jwt_token}}
+
+### Test 8: Get logs with invalid parameters
+GET {{baseUrl}}/instances/{{instanceId}}/logs?lines=2000&follow=invalid
+Authorization: Bearer {{jwt_token}}
+
+### ==============================================
+### PERFORMANCE TESTS
+### ==============================================
+
+### Test 1: Get all instances (performance test)
+GET {{baseUrl}}/instances
+Authorization: Bearer {{jwt_token}}
+
+### Test 2: Get instance details multiple times
+GET {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### Test 3: Get logs with different line counts
+GET {{baseUrl}}/instances/{{instanceId}}/logs?lines=10
+Authorization: Bearer {{jwt_token}}
+
+###
+GET {{baseUrl}}/instances/{{instanceId}}/logs?lines=100
+Authorization: Bearer {{jwt_token}}
+
+###
+GET {{baseUrl}}/instances/{{instanceId}}/logs?lines=500
+Authorization: Bearer {{jwt_token}}
+
+### ==============================================
+### KUBERNETES INTEGRATION TESTS
+### ==============================================
+
+### Test 1: Create instance and check Kubernetes resources
+POST {{baseUrl}}/instances
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "subscriptionId": "{{subscriptionId}}"
+}
+
+### Test 2: Monitor provisioning status
+GET {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### Test 3: Check instance after provisioning complete
+GET {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### Test 4: Update instance resources
+PUT {{baseUrl}}/instances/{{instanceId}}/update
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "planId": "{{planId}}"
+}
+
+### Test 5: Verify resource update
+GET {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### Test 6: Terminate and cleanup
+DELETE {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### ==============================================
+### ADMIN MONITORING (Use admin token)
+### ==============================================
+
+### Check Kubernetes pods (admin only)
+GET {{baseUrl}}/admin/k8s/pods
+Authorization: Bearer {{jwt_token}}
+
+### Check Kubernetes deployments (admin only)
+GET {{baseUrl}}/admin/k8s/deployments
+Authorization: Bearer {{jwt_token}}
+
+### Check Kubernetes services (admin only)
+GET {{baseUrl}}/admin/k8s/services
+Authorization: Bearer {{jwt_token}}
+
+### Check Kubernetes ingresses (admin only)
+GET {{baseUrl}}/admin/k8s/ingresses
+Authorization: Bearer {{jwt_token}}
+
+### ==============================================
+### NOTES
+### ==============================================
+
+# Instance Status Flow:
+# PENDING -> PROVISIONING -> RUNNING -> (TERMINATED)
+#                         -> ERROR (if provisioning fails)
+
+# Available Instance Statuses:
+# - PENDING: Instance created, provisioning not started
+# - PROVISIONING: Kubernetes resources being created
+# - RUNNING: Instance is running and healthy
+# - STOPPED: Instance is stopped but not terminated
+# - ERROR: Provisioning or runtime error occurred
+# - TERMINATED: Instance has been terminated and cleaned up
+# - MAINTENANCE: Instance is under maintenance
+
+# Instance Operations:
+# - CREATE: Provision new instance from subscription
+# - READ: Get instance details and status
+# - UPDATE: Upgrade instance resources (from subscription upgrade)
+# - DELETE: Terminate instance and cleanup resources
+# - RESTART: Restart running instance
+# - LOGS: Get instance logs and monitoring data
+
+# Integration Points:
+# - Subscription Service: Instance creation from active subscriptions
+# - Kubernetes Cluster: Resource provisioning and management
+# - Quota Service: Resource allocation and limits
+# - Monitoring: Health checks and metrics collection

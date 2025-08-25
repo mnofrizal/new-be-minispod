@@ -143,6 +143,9 @@ npm start
 - `rest/admin/k8s-namespaces.rest` - Namespace monitoring endpoints
 - `rest/admin/k8s-ingresses.rest` - Ingress monitoring endpoints
 - `rest/admin/k8s-services.rest` - Service monitoring endpoints
+- `rest/instance.rest` - Service instance management endpoints (comprehensive test cases)
+- `rest/admin/health.rest` - Health monitoring endpoint testing
+- `rest/end-to-end-test.rest` - Complete subscription-to-deployment workflow testing
 
 ### Key Endpoints
 
@@ -195,6 +198,20 @@ npm start
 - `GET /api/admin/k8s/ingresses` - List all ingresses with network config
 - `GET /api/admin/k8s/services` - List all services with network details
 
+#### Service Instance Management
+
+- `GET /api/instances` - List user service instances
+- `POST /api/instances` - Create new service instance
+- `GET /api/instances/:id` - Get instance details
+- `PUT /api/instances/:id/start` - Start service instance
+- `PUT /api/instances/:id/stop` - Stop service instance
+- `DELETE /api/instances/:id` - Delete service instance
+
+#### Admin Health Monitoring
+
+- `GET /api/admin/health/services` - Get health status of all service instances
+- `GET /api/admin/health/services/:id` - Get detailed health status of specific instance
+
 ## Technical Constraints
 
 ### Security
@@ -210,6 +227,10 @@ npm start
 - Graceful degradation when K8s unavailable
 - Real-time metrics collection for resource monitoring
 - Multi-namespace support for resource isolation
+- Automated service provisioning and lifecycle management
+- Production-ready deployment with comprehensive error handling
+- Industry best-practice readiness checks using deployment status conditions
+- Automatic resource cleanup on subscription cancellation
 
 ### Database
 

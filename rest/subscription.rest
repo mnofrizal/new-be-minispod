@@ -95,7 +95,7 @@ Content-Type: application/json
 ### ============================================================================
 
 ### 10. Get Subscription Details
-GET {{baseUrl}}/subscriptions/clxxxxxxxxxxxxxxxxxxxxx
+GET {{baseUrl}}/subscriptions/cmeqypyu70003vva66j2ha44d
 Authorization: Bearer {{authToken}}
 
 ### 11. Get Subscription Details - Not Found (should fail)
@@ -330,3 +330,32 @@ Content-Type: application/json
 # - 404 Not Found: Resource not found
 # - 409 Conflict: Duplicate subscription attempts
 # - 503 Service Unavailable: Quota exceeded
+
+### ============================================================================
+### INSTANCE STATUS TESTS (Added for instance status feature)
+### ============================================================================
+
+### Test 1: Get User Subscriptions (instances included by default)
+GET {{baseUrl}}/subscriptions
+Authorization: Bearer {{authToken}}
+
+### Test 2: Get User Subscriptions without Instance Status (explicit)
+GET {{baseUrl}}/subscriptions?includeInstances=false
+Authorization: Bearer {{authToken}}
+
+### Test 3: Get User Subscriptions with Instance Status (explicit)
+GET {{baseUrl}}/subscriptions?includeInstances=true
+Authorization: Bearer {{authToken}}
+
+### Test 4: Get Subscription Details (should always include instance status)
+GET {{baseUrl}}/subscriptions/cmepx4h1p0007vvjvrfhpft1i
+Authorization: Bearer {{authToken}}
+
+### Test 5: Verify Instance Status Fields in Response
+# Expected instance fields in response:
+# - id, name, subdomain, status, healthStatus
+# - publicUrl, adminUrl, customDomain, sslEnabled
+# - cpuUsage, memoryUsage, storageUsage
+# - createdAt, lastStarted, lastHealthCheck
+GET {{baseUrl}}/subscriptions
+Authorization: Bearer {{authToken}}

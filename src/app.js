@@ -5,6 +5,10 @@ import "dotenv/config";
 // Import routes
 import routes from "./routes/index.routes.js";
 
+// Import health monitoring service
+import healthService from "./services/k8s/health.service.js";
+import logger from "./utils/logger.js";
+
 const app = express();
 
 // Middleware
@@ -34,9 +38,45 @@ app.use((error, req, res, next) => {
 
 const PORT = process.env.PORT || 3000;
 
+// Start health monitoring for service instances
+let healthMonitoringInterval = null;
+if (process.env.NODE_ENV !== "test") {
+  // Start health monitoring after a short delay to allow server to fully start
+  setTimeout(() => {
+    try {
+      healthMonitoringInterval = healthService.startHealthMonitoring(
+        5 * 60 * 1000
+      ); // 5 minutes
+      logger.info("Health monitoring service started");
+    } catch (error) {
+      logger.warn("Failed to start health monitoring:", error.message);
+    }
+  }, 10000); // 10 second delay
+}
+
+// Graceful shutdown
+process.on("SIGTERM", () => {
+  logger.info("SIGTERM received, shutting down gracefully");
+  if (healthMonitoringInterval) {
+    clearInterval(healthMonitoringInterval);
+    logger.info("Health monitoring stopped");
+  }
+  process.exit(0);
+});
+
+process.on("SIGINT", () => {
+  logger.info("SIGINT received, shutting down gracefully");
+  if (healthMonitoringInterval) {
+    clearInterval(healthMonitoringInterval);
+    logger.info("Health monitoring stopped");
+  }
+  process.exit(0);
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
+  logger.info(`MinisPod Backend API started on port ${PORT}`);
 });
 
 export default app;

@@ -10,7 +10,7 @@ import logger from "../utils/logger.js";
 const getUserSubscriptions = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { status, includeInstances = false } = req.query;
+    const { status, includeInstances = "true" } = req.query;
 
     const options = {
       status,

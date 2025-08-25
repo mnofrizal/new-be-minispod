@@ -1,6 +1,8 @@
 import prisma from "../utils/prisma.js";
 import creditService from "./credit.service.js";
 import quotaService from "./quota.service.js";
+import provisioningService from "./k8s/provisioning.service.js";
+import logger from "../utils/logger.js";
 
 /**
  * Create a new subscription for a user
@@ -163,6 +165,24 @@ const createSubscription = async (userId, planId, options = {}) => {
           },
         },
       },
+    });
+
+    // Trigger service provisioning asynchronously
+    setImmediate(() => {
+      provisioningService
+        .provisionServiceInstance(subscription.id)
+        .then((result) => {
+          logger.info(
+            `Provisioning started for subscription ${subscription.id}:`,
+            result
+          );
+        })
+        .catch((error) => {
+          logger.error(
+            `Failed to start provisioning for subscription ${subscription.id}:`,
+            error
+          );
+        });
     });
 
     return {
@@ -461,31 +481,48 @@ const cancelSubscription = async (
     const cancelledSubscription = await tx.subscription.update({
       where: { id: subscriptionId },
       data: {
-        autoRenew: false, // Disable auto-renewal
-        // Keep status as "ACTIVE" - subscription continues until endDate
-        // gracePeriodEnd: null, // Remove any grace period
+        status: "CANCELLED",
+        autoRenew: false,
+        cancellationReason: reason,
+        cancelledAt: now,
       },
     });
 
-    // DO NOT release quota - user keeps using service until end date
-    // DO NOT terminate instances - service continues running
-    // DO NOT process automatic refund - refunds are admin-only
+    // Release the quota
+    await quotaService.releaseQuota(subscription.planId);
+
+    // Terminate the associated Kubernetes instance
+    let instancesTerminated = 0;
+    if (subscription.instances && subscription.instances.length > 0) {
+      const instance = subscription.instances[0]; // Assuming one instance per subscription
+      try {
+        logger.info(
+          `Cancelling subscription, terminating instance: ${instance.id}`
+        );
+        await provisioningService.terminateServiceInstance(instance.id);
+        instancesTerminated = 1;
+      } catch (error) {
+        logger.error(
+          `Failed to terminate instance ${instance.id} during subscription cancellation:`,
+          error
+        );
+        // Do not throw error, just log it. The subscription cancellation should still succeed.
+      }
+    }
 
     return {
       subscription: cancelledSubscription,
       refundAmount: 0, // No automatic refund
       refundProcessed: false,
-      instancesTerminated: 0, // No instances terminated
-      daysRemaining,
+      instancesTerminated,
+      daysRemaining: 0, // Service is terminated immediately
       endDate: subscription.endDate,
-      message: "Auto-renewal cancelled successfully",
+      message:
+        "Subscription cancelled and service instance termination initiated",
       nextSteps: [
-        `Your subscription will remain active until ${subscription.endDate.toLocaleDateString(
-          "id-ID"
-        )}`,
-        `Service will continue running for ${daysRemaining} more days`,
-        "Auto-renewal has been disabled - no future charges will occur",
-        "Contact admin if you need a refund for unused days",
+        "Your subscription is now cancelled.",
+        "The associated service instance is being terminated and all data will be deleted.",
+        "No further charges will occur for this subscription.",
       ],
     };
   });
@@ -498,7 +535,7 @@ const cancelSubscription = async (
  * @returns {Promise<Array>} User subscriptions
  */
 const getUserSubscriptions = async (userId, options = {}) => {
-  const { status = null, includeInstances = false } = options;
+  const { status = null, includeInstances = true } = options;
 
   const whereClause = {
     userId,
@@ -529,18 +566,25 @@ const getUserSubscriptions = async (userId, options = {}) => {
           features: true,
         },
       },
-      instances: includeInstances
-        ? {
-            select: {
-              id: true,
-              name: true,
-              subdomain: true,
-              status: true,
-              publicUrl: true,
-              createdAt: true,
-            },
-          }
-        : false,
+      instances: {
+        select: {
+          id: true,
+          name: true,
+          subdomain: true,
+          status: true,
+          healthStatus: true,
+          publicUrl: true,
+          adminUrl: true,
+          customDomain: true,
+          sslEnabled: true,
+          cpuUsage: true,
+          memoryUsage: true,
+          storageUsage: true,
+          createdAt: true,
+          lastStarted: true,
+          lastHealthCheck: true,
+        },
+      },
       _count: {
         select: {
           instances: true,

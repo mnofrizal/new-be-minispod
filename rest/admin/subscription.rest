@@ -503,3 +503,33 @@ Content-Type: application/json
 {
   "reason": "Testing default processRefund behavior when parameter not provided"
 }
+
+### ============================================================================
+### INSTANCE STATUS TESTS (Added for instance status feature)
+### ============================================================================
+
+### Test 1: Get All Subscriptions with Instance Status (Admin)
+GET {{baseUrl}}/admin/subscriptions
+Authorization: Bearer {{adminToken}}
+
+### Test 2: Get All Subscriptions with Pagination and Instance Status
+GET {{baseUrl}}/admin/subscriptions?page=1&limit=5
+Authorization: Bearer {{adminToken}}
+
+### Test 3: Get All Subscriptions with Filters and Instance Status
+GET {{baseUrl}}/admin/subscriptions?status=ACTIVE&search=test
+Authorization: Bearer {{adminToken}}
+
+### Test 4: Verify Instance Status Fields in Admin Response
+# Expected instance fields in admin response:
+# - id, name, subdomain, status, healthStatus
+# - publicUrl, adminUrl, customDomain, sslEnabled
+# - cpuUsage, memoryUsage, storageUsage
+# - createdAt, lastStarted, lastHealthCheck
+GET {{baseUrl}}/admin/subscriptions?userId=cmepwamtx000avvlpkuakhjcd
+Authorization: Bearer {{adminToken}}
+
+### Test 5: Compare Instance Count vs Actual Instances
+# This test verifies that _count.instances matches the actual instances array length
+GET {{baseUrl}}/admin/subscriptions?limit=3
+Authorization: Bearer {{adminToken}}
