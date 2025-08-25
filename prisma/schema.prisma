@@ -208,8 +208,8 @@ model Subscription {
   instances    ServiceInstance[]
   transactions Transaction[]
 
-  // BUSINESS RULE: One active subscription per user per service
-  @@unique([userId, serviceId], name: "unique_user_service_subscription")
+  // BUSINESS RULE: One active subscription per user per service (enforced in application logic)
+  // Removed unique constraint to allow subscription history and re-subscriptions
   @@map("subscriptions")
 }
 
@@ -242,9 +242,10 @@ enum PaymentMethod {
 }
 
 model Transaction {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  customId String @unique // Custom transaction ID format: TXMP-101, TXMP-102, etc.
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   type   TransactionType
   status TransactionStatus @default(PENDING)

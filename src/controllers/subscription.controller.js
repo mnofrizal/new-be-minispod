@@ -3,317 +3,306 @@ import sendResponse from "../utils/response.js";
 import subscriptionService from "../services/subscription.service.js";
 import logger from "../utils/logger.js";
 
-class SubscriptionController {
-  /**
-   * Get user's subscriptions
-   * GET /api/subscriptions
-   */
-  async getUserSubscriptions(req, res) {
-    try {
-      const userId = req.user.userId;
-      const { status, includeInstances = false } = req.query;
+/**
+ * Get user's subscriptions
+ * GET /api/subscriptions
+ */
+const getUserSubscriptions = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { status, includeInstances = false } = req.query;
 
-      const options = {
-        status,
-        includeInstances: includeInstances === "true",
-      };
+    const options = {
+      status,
+      includeInstances: includeInstances === "true",
+    };
 
-      const subscriptions = await subscriptionService.getUserSubscriptions(
-        userId,
-        options
-      );
+    const subscriptions = await subscriptionService.getUserSubscriptions(
+      userId,
+      options
+    );
 
-      sendResponse(
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      { subscriptions },
+      "Subscriptions retrieved successfully"
+    );
+  } catch (error) {
+    logger.error("Get user subscriptions error:", error);
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to retrieve subscriptions"
+    );
+  }
+};
+
+/**
+ * Get subscription details
+ * GET /api/subscriptions/:subscriptionId
+ */
+const getSubscriptionDetails = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { subscriptionId } = req.params;
+
+    const subscription = await subscriptionService.getSubscriptionDetails(
+      subscriptionId,
+      userId
+    );
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      { subscription },
+      "Subscription details retrieved successfully"
+    );
+  } catch (error) {
+    logger.error("Get subscription details error:", error);
+
+    if (error.message === "Subscription not found") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to retrieve subscription details"
+    );
+  }
+};
+
+/**
+ * Create new subscription
+ * POST /api/subscriptions
+ */
+const createSubscription = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { planId } = req.body;
+
+    // Validate subscription before creating
+    const validation = await subscriptionService.validateSubscription(
+      userId,
+      planId
+    );
+
+    if (!validation.isValid) {
+      const statusCode = getValidationStatusCode(validation.code);
+      return sendResponse(res, statusCode, null, validation.error);
+    }
+
+    const result = await subscriptionService.createSubscription(userId, planId);
+
+    sendResponse(
+      res,
+      StatusCodes.CREATED,
+      result,
+      "Subscription created successfully"
+    );
+  } catch (error) {
+    logger.error("Create subscription error:", error);
+
+    // Handle specific business logic errors
+    if (error.message.includes("already has an active subscription")) {
+      return sendResponse(res, StatusCodes.CONFLICT, null, error.message);
+    }
+
+    if (error.message.includes("Insufficient credit")) {
+      return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
+    }
+
+    if (error.message.includes("full capacity")) {
+      return sendResponse(
         res,
-        StatusCodes.OK,
-        { subscriptions },
-        "Subscriptions retrieved successfully"
-      );
-    } catch (error) {
-      logger.error("Get user subscriptions error:", error);
-      sendResponse(
-        res,
-        StatusCodes.INTERNAL_SERVER_ERROR,
+        StatusCodes.SERVICE_UNAVAILABLE,
         null,
-        "Failed to retrieve subscriptions"
+        error.message
       );
     }
+
+    if (error.message.includes("not found")) {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to create subscription"
+    );
   }
+};
 
-  /**
-   * Get subscription details
-   * GET /api/subscriptions/:subscriptionId
-   */
-  async getSubscriptionDetails(req, res) {
-    try {
-      const userId = req.user.userId;
-      const { subscriptionId } = req.params;
+/**
+ * Upgrade subscription
+ * PUT /api/subscriptions/:subscriptionId/upgrade
+ */
+const upgradeSubscription = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { subscriptionId } = req.params;
+    const { newPlanId } = req.body;
 
-      const subscription = await subscriptionService.getSubscriptionDetails(
-        subscriptionId,
-        userId
-      );
+    // Verify subscription belongs to user
+    const existingSubscription =
+      await subscriptionService.getSubscriptionDetails(subscriptionId, userId);
 
-      sendResponse(
+    if (!existingSubscription) {
+      return sendResponse(
         res,
-        StatusCodes.OK,
-        { subscription },
-        "Subscription details retrieved successfully"
-      );
-    } catch (error) {
-      logger.error("Get subscription details error:", error);
-
-      if (error.message === "Subscription not found") {
-        return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
-      }
-
-      sendResponse(
-        res,
-        StatusCodes.INTERNAL_SERVER_ERROR,
+        StatusCodes.NOT_FOUND,
         null,
-        "Failed to retrieve subscription details"
+        "Subscription not found"
       );
     }
-  }
 
-  /**
-   * Create new subscription
-   * POST /api/subscriptions
-   */
-  async createSubscription(req, res) {
-    try {
-      const userId = req.user.userId;
-      const { planId } = req.body;
+    const result = await subscriptionService.upgradeSubscription(
+      subscriptionId,
+      newPlanId
+    );
 
-      // Validate subscription before creating
-      const validation = await subscriptionService.validateSubscription(
-        userId,
-        planId
-      );
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      result,
+      "Subscription upgraded successfully"
+    );
+  } catch (error) {
+    logger.error("Upgrade subscription error:", error);
 
-      if (!validation.isValid) {
-        const statusCode = getValidationStatusCode(validation.code);
-        return sendResponse(res, statusCode, null, validation.error);
-      }
+    // Handle specific upgrade errors
+    if (error.message.includes("not found")) {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
+    }
 
-      const result = await subscriptionService.createSubscription(
-        userId,
-        planId
-      );
+    if (error.message.includes("Can only upgrade active")) {
+      return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
+    }
 
-      sendResponse(
+    if (error.message.includes("Cannot upgrade to a different service")) {
+      return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
+    }
+
+    if (error.message.includes("Can only upgrade to a higher tier")) {
+      return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
+    }
+
+    if (error.message.includes("Insufficient credit")) {
+      return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
+    }
+
+    if (error.message.includes("full capacity")) {
+      return sendResponse(
         res,
-        StatusCodes.CREATED,
-        result,
-        "Subscription created successfully"
-      );
-    } catch (error) {
-      logger.error("Create subscription error:", error);
-
-      // Handle specific business logic errors
-      if (error.message.includes("already has an active subscription")) {
-        return sendResponse(res, StatusCodes.CONFLICT, null, error.message);
-      }
-
-      if (error.message.includes("Insufficient credit")) {
-        return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
-      }
-
-      if (error.message.includes("full capacity")) {
-        return sendResponse(
-          res,
-          StatusCodes.SERVICE_UNAVAILABLE,
-          null,
-          error.message
-        );
-      }
-
-      if (error.message.includes("not found")) {
-        return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
-      }
-
-      sendResponse(
-        res,
-        StatusCodes.INTERNAL_SERVER_ERROR,
+        StatusCodes.SERVICE_UNAVAILABLE,
         null,
-        "Failed to create subscription"
+        error.message
       );
     }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to upgrade subscription"
+    );
   }
+};
 
-  /**
-   * Upgrade subscription
-   * PUT /api/subscriptions/:subscriptionId/upgrade
-   */
-  async upgradeSubscription(req, res) {
-    try {
-      const userId = req.user.userId;
-      const { subscriptionId } = req.params;
-      const { newPlanId } = req.body;
+/**
+ * Cancel subscription
+ * DELETE /api/subscriptions/:subscriptionId
+ */
+const cancelSubscription = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { subscriptionId } = req.params;
+    const { reason } = req.body;
 
-      // Verify subscription belongs to user
-      const existingSubscription =
-        await subscriptionService.getSubscriptionDetails(
-          subscriptionId,
-          userId
-        );
+    // Verify subscription belongs to user
+    const existingSubscription =
+      await subscriptionService.getSubscriptionDetails(subscriptionId, userId);
 
-      if (!existingSubscription) {
-        return sendResponse(
-          res,
-          StatusCodes.NOT_FOUND,
-          null,
-          "Subscription not found"
-        );
-      }
-
-      const result = await subscriptionService.upgradeSubscription(
-        subscriptionId,
-        newPlanId
-      );
-
-      sendResponse(
+    if (!existingSubscription) {
+      return sendResponse(
         res,
-        StatusCodes.OK,
-        result,
-        "Subscription upgraded successfully"
-      );
-    } catch (error) {
-      logger.error("Upgrade subscription error:", error);
-
-      // Handle specific upgrade errors
-      if (error.message.includes("not found")) {
-        return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
-      }
-
-      if (error.message.includes("Can only upgrade active")) {
-        return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
-      }
-
-      if (error.message.includes("Cannot upgrade to a different service")) {
-        return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
-      }
-
-      if (error.message.includes("Can only upgrade to a higher tier")) {
-        return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
-      }
-
-      if (error.message.includes("Insufficient credit")) {
-        return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
-      }
-
-      if (error.message.includes("full capacity")) {
-        return sendResponse(
-          res,
-          StatusCodes.SERVICE_UNAVAILABLE,
-          null,
-          error.message
-        );
-      }
-
-      sendResponse(
-        res,
-        StatusCodes.INTERNAL_SERVER_ERROR,
+        StatusCodes.NOT_FOUND,
         null,
-        "Failed to upgrade subscription"
+        "Subscription not found"
       );
     }
-  }
 
-  /**
-   * Cancel subscription
-   * DELETE /api/subscriptions/:subscriptionId
-   */
-  async cancelSubscription(req, res) {
-    try {
-      const userId = req.user.userId;
-      const { subscriptionId } = req.params;
-      const { reason } = req.body;
+    const result = await subscriptionService.cancelSubscription(
+      subscriptionId,
+      reason
+    );
 
-      // Verify subscription belongs to user
-      const existingSubscription =
-        await subscriptionService.getSubscriptionDetails(
-          subscriptionId,
-          userId
-        );
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      result,
+      "Subscription cancelled successfully"
+    );
+  } catch (error) {
+    logger.error("Cancel subscription error:", error);
 
-      if (!existingSubscription) {
-        return sendResponse(
-          res,
-          StatusCodes.NOT_FOUND,
-          null,
-          "Subscription not found"
-        );
-      }
-
-      const result = await subscriptionService.cancelSubscription(
-        subscriptionId,
-        reason
-      );
-
-      sendResponse(
-        res,
-        StatusCodes.OK,
-        result,
-        "Subscription cancelled successfully"
-      );
-    } catch (error) {
-      logger.error("Cancel subscription error:", error);
-
-      if (error.message.includes("not found")) {
-        return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
-      }
-
-      if (error.message.includes("already cancelled")) {
-        return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
-      }
-
-      sendResponse(
-        res,
-        StatusCodes.INTERNAL_SERVER_ERROR,
-        null,
-        "Failed to cancel subscription"
-      );
+    if (error.message.includes("not found")) {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
     }
-  }
 
-  /**
-   * Validate subscription before creation
-   * POST /api/subscriptions/validate
-   */
-  async validateSubscription(req, res) {
-    try {
-      const userId = req.user.userId;
-      const { planId } = req.body;
-
-      const validation = await subscriptionService.validateSubscription(
-        userId,
-        planId
-      );
-
-      const statusCode = validation.isValid
-        ? StatusCodes.OK
-        : StatusCodes.BAD_REQUEST;
-
-      sendResponse(
-        res,
-        statusCode,
-        { validation },
-        validation.isValid
-          ? "Subscription validation passed"
-          : "Subscription validation failed"
-      );
-    } catch (error) {
-      logger.error("Validate subscription error:", error);
-      sendResponse(
-        res,
-        StatusCodes.INTERNAL_SERVER_ERROR,
-        null,
-        "Failed to validate subscription"
-      );
+    if (error.message.includes("already cancelled")) {
+      return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
     }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to cancel subscription"
+    );
   }
-}
+};
+
+/**
+ * Validate subscription before creation
+ * POST /api/subscriptions/validate
+ */
+const validateSubscription = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { planId } = req.body;
+
+    const validation = await subscriptionService.validateSubscription(
+      userId,
+      planId
+    );
+
+    const statusCode = validation.isValid
+      ? StatusCodes.OK
+      : StatusCodes.BAD_REQUEST;
+
+    sendResponse(
+      res,
+      statusCode,
+      { validation },
+      validation.isValid
+        ? "Subscription validation passed"
+        : "Subscription validation failed"
+    );
+  } catch (error) {
+    logger.error("Validate subscription error:", error);
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to validate subscription"
+    );
+  }
+};
 
 /**
  * Helper function to get appropriate status code for validation errors
@@ -335,4 +324,11 @@ function getValidationStatusCode(errorCode) {
   }
 }
 
-export default new SubscriptionController();
+export default {
+  getUserSubscriptions,
+  getSubscriptionDetails,
+  createSubscription,
+  upgradeSubscription,
+  cancelSubscription,
+  validateSubscription,
+};

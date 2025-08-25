@@ -79,4 +79,15 @@ router.put(
   adminSubscriptionController.upgradeSubscriptionForUser
 );
 
+/**
+ * @route   PUT /api/admin/subscriptions/:subscriptionId/expire
+ * @desc    Set subscription to expired status (admin only)
+ * @access  Admin only
+ */
+router.put(
+  "/:subscriptionId/expire",
+  validate(adminSubscriptionValidation.expireSubscription),
+  adminSubscriptionController.expireSubscription
+);
+
 export default router;

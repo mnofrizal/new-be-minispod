@@ -1,20 +1,57 @@
 import prisma from "../utils/prisma.js";
+import transactionIdUtil from "../utils/transactionId.js";
 
-class CreditService {
-  /**
-   * Check if user has sufficient credit for a transaction
-   * @param {string} userId - User ID
-   * @param {number} amount - Amount to check (in IDR)
-   * @returns {Promise<Object>} Credit check result
-   */
-  async checkSufficientCredit(userId, amount) {
-    const user = await prisma.user.findUnique({
+/**
+ * Check if user has sufficient credit for a transaction
+ * @param {string} userId - User ID
+ * @param {number} amount - Amount to check (in IDR)
+ * @returns {Promise<Object>} Credit check result
+ */
+const checkSufficientCredit = async (userId, amount) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      creditBalance: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const hasSufficientCredit = user.creditBalance >= amount;
+
+  return {
+    userId: user.id,
+    userName: user.name,
+    currentBalance: user.creditBalance,
+    requiredAmount: amount,
+    hasSufficientCredit,
+    shortfall: hasSufficientCredit ? 0 : amount - user.creditBalance,
+  };
+};
+
+/**
+ * Deduct credit from user balance
+ * @param {string} userId - User ID
+ * @param {number} amount - Amount to deduct (in IDR)
+ * @param {string} description - Transaction description
+ * @param {Object} metadata - Additional transaction metadata
+ * @returns {Promise<Object>} Transaction result
+ */
+const deductCredit = async (userId, amount, description, metadata = {}) => {
+  return await prisma.$transaction(async (tx) => {
+    // Get current user balance
+    const user = await tx.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
         name: true,
-        email: true,
         creditBalance: true,
+        totalSpent: true,
       },
     });
 
@@ -22,173 +59,75 @@ class CreditService {
       throw new Error("User not found");
     }
 
-    const hasSufficientCredit = user.creditBalance >= amount;
+    if (user.creditBalance < amount) {
+      throw new Error(
+        `Insufficient credit. Balance: ${user.creditBalance}, Required: ${amount}`
+      );
+    }
+
+    const balanceBefore = user.creditBalance;
+    const balanceAfter = balanceBefore - amount;
+
+    // Update user balance and total spent
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        creditBalance: balanceAfter,
+        totalSpent: { increment: amount },
+      },
+    });
+
+    // Generate custom transaction ID
+    const customId = await transactionIdUtil.generateTransactionId();
+
+    // Create transaction record
+    const transaction = await tx.transaction.create({
+      data: {
+        customId,
+        userId,
+        type: metadata.type || "SUBSCRIPTION",
+        status: "COMPLETED",
+        amount,
+        balanceBefore,
+        balanceAfter,
+        description,
+        metadata,
+        subscriptionId: metadata.subscriptionId || null,
+        completedAt: new Date(),
+      },
+    });
 
     return {
+      transactionId: transaction.id,
       userId: user.id,
       userName: user.name,
-      currentBalance: user.creditBalance,
-      requiredAmount: amount,
-      hasSufficientCredit,
-      shortfall: hasSufficientCredit ? 0 : amount - user.creditBalance,
+      amount,
+      balanceBefore,
+      balanceAfter,
+      description,
+      success: true,
     };
-  }
+  });
+};
 
-  /**
-   * Deduct credit from user balance
-   * @param {string} userId - User ID
-   * @param {number} amount - Amount to deduct (in IDR)
-   * @param {string} description - Transaction description
-   * @param {Object} metadata - Additional transaction metadata
-   * @returns {Promise<Object>} Transaction result
-   */
-  async deductCredit(userId, amount, description, metadata = {}) {
-    return await prisma.$transaction(async (tx) => {
-      // Get current user balance
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          name: true,
-          creditBalance: true,
-          totalSpent: true,
-        },
-      });
-
-      if (!user) {
-        throw new Error("User not found");
-      }
-
-      if (user.creditBalance < amount) {
-        throw new Error(
-          `Insufficient credit. Balance: ${user.creditBalance}, Required: ${amount}`
-        );
-      }
-
-      const balanceBefore = user.creditBalance;
-      const balanceAfter = balanceBefore - amount;
-
-      // Update user balance and total spent
-      await tx.user.update({
-        where: { id: userId },
-        data: {
-          creditBalance: balanceAfter,
-          totalSpent: { increment: amount },
-        },
-      });
-
-      // Create transaction record
-      const transaction = await tx.transaction.create({
-        data: {
-          userId,
-          type: metadata.type || "SUBSCRIPTION",
-          status: "COMPLETED",
-          amount,
-          balanceBefore,
-          balanceAfter,
-          description,
-          metadata,
-          subscriptionId: metadata.subscriptionId || null,
-          completedAt: new Date(),
-        },
-      });
-
-      return {
-        transactionId: transaction.id,
-        userId: user.id,
-        userName: user.name,
-        amount,
-        balanceBefore,
-        balanceAfter,
-        description,
-        success: true,
-      };
-    });
-  }
-
-  /**
-   * Add credit to user balance
-   * @param {string} userId - User ID
-   * @param {number} amount - Amount to add (in IDR)
-   * @param {string} description - Transaction description
-   * @param {Object} metadata - Additional transaction metadata
-   * @returns {Promise<Object>} Transaction result
-   */
-  async addCredit(userId, amount, description, metadata = {}) {
-    return await prisma.$transaction(async (tx) => {
-      // Get current user balance
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          name: true,
-          creditBalance: true,
-          totalTopUp: true,
-        },
-      });
-
-      if (!user) {
-        throw new Error("User not found");
-      }
-
-      const balanceBefore = user.creditBalance;
-      const balanceAfter = balanceBefore + amount;
-
-      // Update user balance and total top-up
-      await tx.user.update({
-        where: { id: userId },
-        data: {
-          creditBalance: balanceAfter,
-          totalTopUp: { increment: amount },
-        },
-      });
-
-      // Create transaction record
-      const transaction = await tx.transaction.create({
-        data: {
-          userId,
-          type: metadata.type || "TOP_UP",
-          status: metadata.status || "COMPLETED",
-          amount,
-          balanceBefore,
-          balanceAfter,
-          paymentMethod: metadata.paymentMethod || null,
-          paymentReference: metadata.paymentReference || null,
-          description,
-          metadata,
-          completedAt: metadata.status === "COMPLETED" ? new Date() : null,
-        },
-      });
-
-      return {
-        transactionId: transaction.id,
-        userId: user.id,
-        userName: user.name,
-        amount,
-        balanceBefore,
-        balanceAfter,
-        description,
-        success: true,
-      };
-    });
-  }
-
-  /**
-   * Get user credit balance and statistics
-   * @param {string} userId - User ID
-   * @returns {Promise<Object>} User credit information
-   */
-  async getUserCreditInfo(userId) {
-    const user = await prisma.user.findUnique({
+/**
+ * Add credit to user balance
+ * @param {string} userId - User ID
+ * @param {number} amount - Amount to add (in IDR)
+ * @param {string} description - Transaction description
+ * @param {Object} metadata - Additional transaction metadata
+ * @returns {Promise<Object>} Transaction result
+ */
+const addCredit = async (userId, amount, description, metadata = {}) => {
+  return await prisma.$transaction(async (tx) => {
+    // Get current user balance
+    const user = await tx.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
         name: true,
-        email: true,
         creditBalance: true,
         totalTopUp: true,
-        totalSpent: true,
-        createdAt: true,
       },
     });
 
@@ -196,278 +135,362 @@ class CreditService {
       throw new Error("User not found");
     }
 
-    // Get recent transactions
-    const recentTransactions = await prisma.transaction.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      select: {
-        id: true,
-        type: true,
-        status: true,
-        amount: true,
-        description: true,
-        createdAt: true,
-        completedAt: true,
+    const balanceBefore = user.creditBalance;
+    const balanceAfter = balanceBefore + amount;
+
+    // Update user balance and total top-up
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        creditBalance: balanceAfter,
+        totalTopUp: { increment: amount },
       },
     });
 
-    // Get monthly spending (current month)
-    const currentMonth = new Date();
-    currentMonth.setDate(1);
-    currentMonth.setHours(0, 0, 0, 0);
+    // Generate custom transaction ID
+    const customId = await transactionIdUtil.generateTransactionId();
 
-    const monthlySpending = await prisma.transaction.aggregate({
-      where: {
+    // Create transaction record
+    const transaction = await tx.transaction.create({
+      data: {
+        customId,
         userId,
-        type: { in: ["SUBSCRIPTION", "UPGRADE"] },
-        status: "COMPLETED",
-        completedAt: { gte: currentMonth },
+        type: metadata.type || "TOP_UP",
+        status: metadata.status || "COMPLETED",
+        amount,
+        balanceBefore,
+        balanceAfter,
+        paymentMethod: metadata.paymentMethod || null,
+        paymentReference: metadata.paymentReference || null,
+        description,
+        metadata,
+        completedAt: metadata.status === "COMPLETED" ? new Date() : null,
       },
-      _sum: { amount: true },
     });
 
     return {
+      transactionId: transaction.id,
       userId: user.id,
       userName: user.name,
-      email: user.email,
-      creditBalance: user.creditBalance,
-      totalTopUp: user.totalTopUp,
-      totalSpent: user.totalSpent,
-      monthlySpending: monthlySpending._sum.amount || 0,
-      netBalance: user.totalTopUp - user.totalSpent,
-      memberSince: user.createdAt,
-      recentTransactions,
+      amount,
+      balanceBefore,
+      balanceAfter,
+      description,
+      success: true,
     };
+  });
+};
+
+/**
+ * Get user credit balance and statistics
+ * @param {string} userId - User ID
+ * @returns {Promise<Object>} User credit information
+ */
+const getUserCreditInfo = async (userId) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      creditBalance: true,
+      totalTopUp: true,
+      totalSpent: true,
+      createdAt: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
   }
 
-  /**
-   * Get transaction history for a user
-   * @param {string} userId - User ID
-   * @param {Object} options - Query options
-   * @returns {Promise<Object>} Transaction history with pagination
-   */
-  async getTransactionHistory(userId, options = {}) {
-    const {
-      page = 1,
-      limit = 20,
-      type = null,
-      status = null,
-      startDate = null,
-      endDate = null,
-    } = options;
+  // Get recent transactions
+  const recentTransactions = await prisma.transaction.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+    select: {
+      id: true,
+      type: true,
+      status: true,
+      amount: true,
+      description: true,
+      createdAt: true,
+      completedAt: true,
+    },
+  });
 
-    const offset = (page - 1) * limit;
+  // Get monthly spending (current month)
+  const currentMonth = new Date();
+  currentMonth.setDate(1);
+  currentMonth.setHours(0, 0, 0, 0);
 
-    const whereClause = {
+  const monthlySpending = await prisma.transaction.aggregate({
+    where: {
       userId,
-      ...(type && { type }),
-      ...(status && { status }),
-      ...(startDate &&
-        endDate && {
-          createdAt: {
-            gte: new Date(startDate),
-            lte: new Date(endDate),
-          },
-        }),
-    };
+      type: { in: ["SUBSCRIPTION", "UPGRADE"] },
+      status: "COMPLETED",
+      completedAt: { gte: currentMonth },
+    },
+    _sum: { amount: true },
+  });
 
-    const [transactions, totalCount] = await Promise.all([
-      prisma.transaction.findMany({
-        where: whereClause,
-        include: {
-          subscription: {
-            select: {
-              id: true,
-              service: {
-                select: {
-                  name: true,
-                  slug: true,
-                },
+  return {
+    userId: user.id,
+    userName: user.name,
+    email: user.email,
+    creditBalance: user.creditBalance,
+    totalTopUp: user.totalTopUp,
+    totalSpent: user.totalSpent,
+    monthlySpending: monthlySpending._sum.amount || 0,
+    netBalance: user.totalTopUp - user.totalSpent,
+    memberSince: user.createdAt,
+    recentTransactions,
+  };
+};
+
+/**
+ * Get transaction history for a user
+ * @param {string} userId - User ID
+ * @param {Object} options - Query options
+ * @returns {Promise<Object>} Transaction history with pagination
+ */
+const getTransactionHistory = async (userId, options = {}) => {
+  const {
+    page = 1,
+    limit = 20,
+    type = null,
+    status = null,
+    startDate = null,
+    endDate = null,
+  } = options;
+
+  const offset = (page - 1) * limit;
+
+  const whereClause = {
+    userId,
+    ...(type && { type }),
+    ...(status && { status }),
+    ...(startDate &&
+      endDate && {
+        createdAt: {
+          gte: new Date(startDate),
+          lte: new Date(endDate),
+        },
+      }),
+  };
+
+  const [transactions, totalCount] = await Promise.all([
+    prisma.transaction.findMany({
+      where: whereClause,
+      include: {
+        subscription: {
+          select: {
+            id: true,
+            service: {
+              select: {
+                name: true,
+                slug: true,
               },
-              plan: {
-                select: {
-                  name: true,
-                  planType: true,
-                },
+            },
+            plan: {
+              select: {
+                name: true,
+                planType: true,
               },
             },
           },
         },
-        orderBy: { createdAt: "desc" },
-        take: limit,
-        skip: offset,
-      }),
-      prisma.transaction.count({ where: whereClause }),
-    ]);
-
-    return {
-      transactions,
-      pagination: {
-        currentPage: page,
-        totalPages: Math.ceil(totalCount / limit),
-        totalCount,
-        hasMore: offset + limit < totalCount,
       },
-    };
-  }
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      skip: offset,
+    }),
+    prisma.transaction.count({ where: whereClause }),
+  ]);
 
-  /**
-   * Refund credit to user (for cancellations, failures, etc.)
-   * @param {string} userId - User ID
-   * @param {number} amount - Amount to refund (in IDR)
-   * @param {string} description - Refund description
-   * @param {Object} metadata - Additional metadata
-   * @returns {Promise<Object>} Refund result
-   */
-  async refundCredit(userId, amount, description, metadata = {}) {
-    return await prisma.$transaction(async (tx) => {
-      // Get current user balance
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          name: true,
-          creditBalance: true,
-          totalSpent: true,
-        },
-      });
+  return {
+    transactions,
+    pagination: {
+      currentPage: page,
+      totalPages: Math.ceil(totalCount / limit),
+      totalCount,
+      hasMore: offset + limit < totalCount,
+    },
+  };
+};
 
-      if (!user) {
-        throw new Error("User not found");
-      }
+/**
+ * Refund credit to user (for cancellations, failures, etc.)
+ * @param {string} userId - User ID
+ * @param {number} amount - Amount to refund (in IDR)
+ * @param {string} description - Refund description
+ * @param {Object} metadata - Additional metadata
+ * @returns {Promise<Object>} Refund result
+ */
+const refundCredit = async (userId, amount, description, metadata = {}) => {
+  return await prisma.$transaction(async (tx) => {
+    // Get current user balance
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        creditBalance: true,
+        totalSpent: true,
+      },
+    });
 
-      const balanceBefore = user.creditBalance;
-      const balanceAfter = balanceBefore + amount;
+    if (!user) {
+      throw new Error("User not found");
+    }
 
-      // Update user balance and reduce total spent
-      await tx.user.update({
-        where: { id: userId },
-        data: {
-          creditBalance: balanceAfter,
-          totalSpent: { decrement: Math.min(amount, user.totalSpent) },
-        },
-      });
+    const balanceBefore = user.creditBalance;
+    const balanceAfter = balanceBefore + amount;
 
-      // Create refund transaction record
-      const transaction = await tx.transaction.create({
-        data: {
-          userId,
-          type: "REFUND",
-          status: "COMPLETED",
-          amount,
-          balanceBefore,
-          balanceAfter,
-          description,
-          metadata: {
-            ...metadata,
-            refundReason: metadata.reason || "Service cancellation",
-            originalTransactionId: metadata.originalTransactionId || null,
-          },
-          subscriptionId: metadata.subscriptionId || null,
-          completedAt: new Date(),
-        },
-      });
+    // Update user balance and reduce total spent
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        creditBalance: balanceAfter,
+        totalSpent: { decrement: Math.min(amount, user.totalSpent) },
+      },
+    });
 
-      return {
-        transactionId: transaction.id,
-        userId: user.id,
-        userName: user.name,
-        refundAmount: amount,
+    // Generate custom transaction ID
+    const customId = await transactionIdUtil.generateTransactionId();
+
+    // Create refund transaction record
+    const transaction = await tx.transaction.create({
+      data: {
+        customId,
+        userId,
+        type: "REFUND",
+        status: "COMPLETED",
+        amount,
         balanceBefore,
         balanceAfter,
         description,
-        success: true,
-      };
+        metadata: {
+          ...metadata,
+          refundReason: metadata.reason || "Service cancellation",
+          originalTransactionId: metadata.originalTransactionId || null,
+        },
+        subscriptionId: metadata.subscriptionId || null,
+        completedAt: new Date(),
+      },
     });
-  }
 
-  /**
-   * Admin credit adjustment (manual credit addition/deduction)
-   * @param {string} userId - User ID
-   * @param {number} amount - Amount to adjust (positive for addition, negative for deduction)
-   * @param {string} reason - Reason for adjustment
-   * @param {string} adminId - Admin user ID performing the adjustment
-   * @returns {Promise<Object>} Adjustment result
-   */
-  async adminCreditAdjustment(userId, amount, reason, adminId) {
-    return await prisma.$transaction(async (tx) => {
-      // Get current user balance
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          name: true,
-          creditBalance: true,
-        },
-      });
+    return {
+      transactionId: transaction.id,
+      userId: user.id,
+      userName: user.name,
+      refundAmount: amount,
+      balanceBefore,
+      balanceAfter,
+      description,
+      success: true,
+    };
+  });
+};
 
-      if (!user) {
-        throw new Error("User not found");
-      }
+/**
+ * Admin credit adjustment (manual credit addition/deduction)
+ * @param {string} userId - User ID
+ * @param {number} amount - Amount to adjust (positive for addition, negative for deduction)
+ * @param {string} reason - Reason for adjustment
+ * @param {string} adminId - Admin user ID performing the adjustment
+ * @returns {Promise<Object>} Adjustment result
+ */
+const adminCreditAdjustment = async (userId, amount, reason, adminId) => {
+  return await prisma.$transaction(async (tx) => {
+    // Get current user balance
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        creditBalance: true,
+      },
+    });
 
-      // Verify admin exists
-      const admin = await tx.user.findUnique({
-        where: { id: adminId, role: "ADMINISTRATOR" },
-        select: { id: true, name: true },
-      });
+    if (!user) {
+      throw new Error("User not found");
+    }
 
-      if (!admin) {
-        throw new Error("Admin user not found or insufficient permissions");
-      }
+    // Verify admin exists
+    const admin = await tx.user.findUnique({
+      where: { id: adminId, role: "ADMINISTRATOR" },
+      select: { id: true, name: true },
+    });
 
-      const balanceBefore = user.creditBalance;
-      const balanceAfter = balanceBefore + amount;
+    if (!admin) {
+      throw new Error("Admin user not found or insufficient permissions");
+    }
 
-      if (balanceAfter < 0) {
-        throw new Error("Adjustment would result in negative balance");
-      }
+    const balanceBefore = user.creditBalance;
+    const balanceAfter = balanceBefore + amount;
 
-      // Update user balance
-      await tx.user.update({
-        where: { id: userId },
-        data: {
-          creditBalance: balanceAfter,
-          ...(amount > 0 && { totalTopUp: { increment: amount } }),
-          ...(amount < 0 && { totalSpent: { increment: Math.abs(amount) } }),
-        },
-      });
+    if (balanceAfter < 0) {
+      throw new Error("Adjustment would result in negative balance");
+    }
 
-      // Create adjustment transaction record
-      const transaction = await tx.transaction.create({
-        data: {
-          userId,
-          type: "ADMIN_ADJUSTMENT",
-          status: "COMPLETED",
-          amount: Math.abs(amount),
-          balanceBefore,
-          balanceAfter,
-          description: `Admin adjustment: ${reason}`,
-          metadata: {
-            adjustmentType: amount > 0 ? "credit" : "debit",
-            adminId,
-            adminName: admin.name,
-            reason,
-          },
-          processedBy: adminId,
-          adminNotes: reason,
-          completedAt: new Date(),
-        },
-      });
+    // Update user balance
+    await tx.user.update({
+      where: { id: userId },
+      data: {
+        creditBalance: balanceAfter,
+        ...(amount > 0 && { totalTopUp: { increment: amount } }),
+        ...(amount < 0 && { totalSpent: { increment: Math.abs(amount) } }),
+      },
+    });
 
-      return {
-        transactionId: transaction.id,
-        userId: user.id,
-        userName: user.name,
-        adjustmentAmount: amount,
+    // Generate custom transaction ID
+    const customId = await transactionIdUtil.generateTransactionId();
+
+    // Create adjustment transaction record
+    const transaction = await tx.transaction.create({
+      data: {
+        customId,
+        userId,
+        type: "ADMIN_ADJUSTMENT",
+        status: "COMPLETED",
+        amount: Math.abs(amount),
         balanceBefore,
         balanceAfter,
-        reason,
-        processedBy: admin.name,
-        success: true,
-      };
+        description: `Admin adjustment: ${reason}`,
+        metadata: {
+          adjustmentType: amount > 0 ? "credit" : "debit",
+          adminId,
+          adminName: admin.name,
+          reason,
+        },
+        processedBy: adminId,
+        adminNotes: reason,
+        completedAt: new Date(),
+      },
     });
-  }
-}
 
-export default new CreditService();
+    return {
+      transactionId: transaction.id,
+      userId: user.id,
+      userName: user.name,
+      adjustmentAmount: amount,
+      balanceBefore,
+      balanceAfter,
+      reason,
+      processedBy: admin.name,
+      success: true,
+    };
+  });
+};
+
+export default {
+  checkSufficientCredit,
+  deductCredit,
+  addCredit,
+  getUserCreditInfo,
+  getTransactionHistory,
+  refundCredit,
+  adminCreditAdjustment,
+};

@@ -77,6 +77,7 @@ The backend follows a **layered architecture** pattern with clear separation of 
 
 - [`src/utils/response.js`](src/utils/response.js:1) - Standardized API response formatting
 - [`src/utils/logger.js`](src/utils/logger.js:1) - Winston logging configuration
+- [`src/utils/transactionId.js`](src/utils/transactionId.js:1) - Custom transaction ID generation and validation
 
 ## Key Technical Decisions
 
@@ -93,7 +94,7 @@ The backend follows a **layered architecture** pattern with clear separation of 
 - **Service Model**: Service templates with Kubernetes configuration (N8N, Ghost, PostgreSQL)
 - **ServicePlan Model**: Pricing tiers with simplified quota system (FREE, BASIC, PRO, PREMIUM, ENTERPRISE)
 - **Subscription Model**: User subscriptions with credit-based billing and upgrade-only policy
-- **Transaction Model**: Complete transaction tracking with Midtrans payment methods
+- **Transaction Model**: Complete transaction tracking with Midtrans payment methods and custom TXMP-XXX ID format
 - **ServiceInstance Model**: Kubernetes instance management linked to subscriptions
 
 ### Database Design
@@ -104,6 +105,7 @@ The backend follows a **layered architecture** pattern with clear separation of 
 - **Credit System**: Transaction-based credit management with audit trail
 - **Cascade Deletion**: Proper relationship management across all models
 - **Currency Storage**: Int fields for IDR to avoid decimal precision issues
+- **Custom Transaction IDs**: TXMP-XXX format with PostgreSQL sequence auto-increment starting from 101
 
 ### Kubernetes Integration
 
@@ -120,7 +122,8 @@ The backend follows a **layered architecture** pattern with clear separation of 
 - **Payment Integration**: Midtrans gateway with multiple payment methods (Bank Transfer, E-Wallet, Credit Card, QRIS)
 - **Transaction Types**: TOP_UP, SUBSCRIPTION, UPGRADE, REFUND, ADMIN_ADJUSTMENT
 - **Automated Processing**: Webhook handling for payment notifications
-- **Audit Trail**: Complete transaction logging with balance snapshots
+- **Audit Trail**: Complete transaction logging with balance snapshots and custom transaction IDs
+- **Custom ID Format**: TXMP-XXX sequential numbering with PostgreSQL sequence management
 
 ### Simplified Quota Management
 
@@ -135,7 +138,8 @@ The backend follows a **layered architecture** pattern with clear separation of 
 - **HTTP Status Codes**: Proper status code usage throughout
 - **Error Handling**: Global error handler with detailed logging
 - **Validation**: Joi schemas for request validation
-- **Business Logic Separation**: Clean service layer architecture
+- **Business Logic Separation**: Clean service layer architecture with modern const-based patterns
+- **Architecture Modernization**: Consistent const-based function patterns across all core services
 
 ## Component Relationships
 

@@ -18,15 +18,22 @@ This is the **backend API** for a Platform-as-a-Service (PaaS) project called "M
 
 - **Authentication System**: JWT-based authentication with refresh tokens
 - **User Management**: Registration, login, profile management with role-based permissions
+- **Subscription Management**: Complete subscription lifecycle with user and admin controls
+- **Payment Integration**: Credit-based billing system with Midtrans payment gateway
+- **Wallet Management**: Credit balance tracking and transaction management
+- **Service Catalog**: Public browsing of available services and pricing plans
 - **Kubernetes Monitoring**: Real-time monitoring of pods, deployments, nodes, namespaces, ingresses, and services
 - **Network Monitoring**: Complete network infrastructure monitoring with ingress and service configuration details
-- **Admin Dashboard Backend**: Provides APIs for administrative operations on K8s resources
+- **Admin Dashboard Backend**: Provides APIs for administrative operations on K8s resources and subscription management
 - **Metrics Integration**: Resource usage monitoring with CPU and memory metrics
 
 ### User Experience Goals
 
 - **Secure Access**: Robust authentication with proper token management
 - **Role-based Permissions**: Different access levels for users and administrators
+- **Seamless Payments**: Integrated payment processing with multiple payment methods
+- **Flexible Subscriptions**: Easy subscription management with upgrade capabilities
+- **Admin Control**: Comprehensive admin tools for subscription and user management
 - **Real-time Monitoring**: Live data about cluster resources, network infrastructure, and their health
 - **Scalable Architecture**: Built to handle multiple tenants and services
 - **Developer-friendly APIs**: Well-structured REST endpoints with proper error handling
@@ -41,7 +48,9 @@ This is the **backend API** for a Platform-as-a-Service (PaaS) project called "M
 ## Success Metrics
 
 - Secure user authentication and authorization
+- Complete subscription management system with payment integration
 - Reliable Kubernetes cluster monitoring
 - Proper error handling and logging
 - Scalable database design for multi-tenancy
 - Clean API design following REST principles
+- Robust credit-based billing system with transaction tracking

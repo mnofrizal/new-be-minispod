@@ -41,6 +41,9 @@ const adminSubscriptionValidation = {
         "string.max": "Reason cannot exceed 500 characters",
         "any.required": "Cancellation reason is required",
       }),
+      processRefund: Joi.boolean().default(false).messages({
+        "boolean.base": "Process refund must be a boolean value",
+      }),
       terminateInstances: Joi.boolean().default(true).messages({
         "boolean.base": "Terminate instances must be a boolean value",
       }),
@@ -198,6 +201,29 @@ const adminSubscriptionValidation = {
       reason: Joi.string().min(10).max(500).optional().messages({
         "string.min": "Reason must be at least 10 characters long",
         "string.max": "Reason cannot exceed 500 characters",
+      }),
+    }),
+  },
+
+  /**
+   * Validation for expire subscription
+   */
+  expireSubscription: {
+    params: Joi.object({
+      subscriptionId: Joi.string().required().messages({
+        "string.empty": "Subscription ID is required",
+        "any.required": "Subscription ID is required",
+      }),
+    }),
+    body: Joi.object({
+      reason: Joi.string().min(10).max(500).required().messages({
+        "string.empty": "Expiration reason is required",
+        "string.min": "Reason must be at least 10 characters long",
+        "string.max": "Reason cannot exceed 500 characters",
+        "any.required": "Expiration reason is required",
+      }),
+      terminateInstances: Joi.boolean().default(true).messages({
+        "boolean.base": "Terminate instances must be a boolean value",
       }),
     }),
   },

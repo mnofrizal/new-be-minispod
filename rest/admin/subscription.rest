@@ -1,7 +1,20 @@
 ### Admin Subscription Management API Tests
 ### Base URL and Authentication
 @baseUrl = http://localhost:3000/api
-@adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWVwdmFtdHgwMDBhdnZscGt1YWtoamNkIiwicm9sZSI6IkFETUlOSVNUUkFUT1IiLCJpYXQiOjE3MjQ1MTI4MDAsImV4cCI6MTcyNDU5OTIwMH0.example
+@adminToken = {{admin_login.response.body.data.accessToken}}
+
+### ============================================================================
+### SUBSCRIPTION MANAGEMENT ENDPOINTS
+### ============================================================================
+### Admin Login
+# @name admin_login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
 
 ### 1. Create Subscription for User (Admin)
 POST {{baseUrl}}/admin/subscriptions
@@ -58,23 +71,36 @@ GET {{baseUrl}}/admin/subscriptions/stats?startDate=2024-08-01&endDate=2024-08-3
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
-### 8. Force Cancel Subscription (Admin)
+### 8. Force Cancel Subscription (Admin) - No Refund
 DELETE {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/force-cancel
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 {
   "reason": "Service violation - inappropriate usage detected",
+  "processRefund": false,
   "terminateInstances": true
 }
 
-### 9. Force Cancel Subscription (Keep Instances Running)
+### 9. Force Cancel Subscription - With Prorated Refund
 DELETE {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/force-cancel
 Authorization: Bearer {{adminToken}}
 Content-Type: application/json
 
 {
-  "reason": "User requested immediate cancellation",
+  "reason": "User requested immediate cancellation with refund",
+  "processRefund": true,
+  "terminateInstances": true
+}
+
+### 10. Force Cancel Subscription (Legacy - Keep Instances Parameter)
+DELETE {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/force-cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Testing legacy terminateInstances parameter",
+  "processRefund": false,
   "terminateInstances": false
 }
 
@@ -386,4 +412,94 @@ Content-Type: application/json
   "newPlanId": "{{proPlanId}}",
   "skipCreditCheck": false,
   "reason": "Unauthorized upgrade attempt"
+}
+
+### 42. Admin Expire Subscription (Terminate Instances)
+PUT {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/expire
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Service violation - inappropriate content detected",
+  "terminateInstances": true
+}
+
+### 43. Admin Expire Subscription (Keep Instances Running)
+PUT {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/expire
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Subscription expired due to non-payment",
+  "terminateInstances": false
+}
+
+### 44. Admin Expire Subscription - Invalid Subscription ID
+PUT {{baseUrl}}/admin/subscriptions/invalid-subscription-id/expire
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Testing invalid subscription ID for expiration",
+  "terminateInstances": true
+}
+
+### 45. Admin Expire Subscription - Missing Reason
+PUT {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/expire
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "terminateInstances": true
+}
+
+### 46. Admin Expire Subscription - Reason Too Short
+PUT {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/expire
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Short",
+  "terminateInstances": true
+}
+
+### 47. Admin Expire Subscription - Unauthorized (User Token)
+PUT {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/expire
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "reason": "Unauthorized expiration attempt by user",
+  "terminateInstances": true
+}
+
+### 48. Force Cancel - Test Prorated Refund Calculation
+DELETE {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/force-cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Testing prorated refund calculation for mid-month cancellation",
+  "processRefund": true,
+  "terminateInstances": true
+}
+
+### 49. Force Cancel - Already Cancelled Subscription (Should Fail)
+DELETE {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/force-cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Testing cancellation of already cancelled subscription",
+  "processRefund": true,
+  "terminateInstances": true
+}
+
+### 50. Force Cancel - Missing processRefund Parameter (Default False)
+DELETE {{baseUrl}}/admin/subscriptions/cmepwamtx000gvvlpkuakhjcd/force-cancel
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "reason": "Testing default processRefund behavior when parameter not provided"
 }

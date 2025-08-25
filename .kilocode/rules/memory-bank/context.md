@@ -4,6 +4,13 @@
 
 The backend API has **completed Phase 3: Subscription Management API** with comprehensive user and admin subscription functionality. The project now has a complete subscription system with user subscription management, admin controls, bonus subscriptions, and upgrade capabilities.
 
+**Recent Major Updates (August 2025):**
+
+- **Architecture Modernization**: Completed comprehensive class-to-const conversion across 9 core files
+- **Enhanced Admin Features**: Added subscription expiration and advanced force-cancel capabilities
+- **Database Schema Improvements**: Resolved unique constraint issues and implemented custom transaction IDs
+- **Transaction System Enhancement**: Implemented TXMP-XXX format with PostgreSQL sequence-based auto-increment
+
 ## Recent Implementation Status
 
 ### ✅ Completed Features
@@ -65,12 +72,14 @@ The backend API has **completed Phase 3: Subscription Management API** with comp
 ### 🔄 Current State
 
 - **Environment**: Development setup with local PostgreSQL database
-- **Database**: Enhanced schema with Int currency fields for IDR precision
-- **Core Services**: All 6 services tested and working properly
-- **Payment Integration**: Midtrans fully operational with webhook processing
+- **Database**: Enhanced schema with Int currency fields for IDR precision and custom transaction IDs
+- **Core Services**: All 6 services modernized with const-based architecture and tested
+- **Payment Integration**: Midtrans fully operational with webhook processing and custom transaction IDs
 - **Wallet System**: Production-ready with comprehensive error handling
-- **Subscription System**: Complete user and admin subscription management
-- **Progress**: 90% complete (increased from 75%)
+- **Subscription System**: Complete user and admin subscription management with advanced features
+- **Architecture**: Modernized codebase with consistent const-based patterns
+- **Transaction System**: Custom TXMP-XXX ID format with PostgreSQL sequence auto-increment
+- **Progress**: 95% complete (increased from 90%)
 
 ## Next Steps
 
@@ -99,7 +108,50 @@ The backend API has **completed Phase 3: Subscription Management API** with comp
 
 ## Recent Implementation History
 
-### Phase 3: Subscription Management API Implementation (Just Completed)
+### Phase 3.5: Architecture Modernization & Advanced Features (Just Completed)
+
+#### Class-to-Const Architecture Conversion
+
+- **Scope**: Comprehensive modernization of 9 core files from class-based to const-based architecture
+- **Files Converted**:
+  - [`src/controllers/subscription.controller.js`](src/controllers/subscription.controller.js:1) - User subscription management
+  - [`src/controllers/wallet.controller.js`](src/controllers/wallet.controller.js:1) - Wallet and payment operations
+  - [`src/controllers/admin/subscription.controller.js`](src/controllers/admin/subscription.controller.js:1) - Admin subscription management
+  - [`src/services/payment/midtrans.service.js`](src/services/payment/midtrans.service.js:1) - Payment gateway integration
+  - [`src/services/catalog.service.js`](src/services/catalog.service.js:1) - Service catalog management
+  - [`src/services/credit.service.js`](src/services/credit.service.js:1) - Credit and billing operations
+  - [`src/services/quota.service.js`](src/services/quota.service.js:1) - Quota management system
+  - [`src/services/transaction.service.js`](src/services/transaction.service.js:1) - Transaction handling
+  - [`src/services/subscription.service.js`](src/services/subscription.service.js:1) - Subscription business logic
+- **Pattern**: Converted from `class ClassName { async method() {} }` to `const methodName = async (params) => {}`
+- **Benefits**: Improved consistency, modern JavaScript patterns, better maintainability
+
+#### Enhanced Admin Subscription Features
+
+- **Subscription Expiration**: Added admin endpoint to manually expire subscriptions
+- **Advanced Force Cancel**: Enhanced force cancel with prorated refund options and immediate termination
+- **Flexible Termination**: Admin can choose between immediate termination or natural expiration
+- **Instance Management**: Automatic service instance termination on force cancel
+- **Audit Trail**: Complete logging of all admin actions with reasons and timestamps
+
+#### Database Schema Improvements
+
+- **Unique Constraint Resolution**: Removed `@@unique([userId, serviceId])` constraint to allow re-subscriptions
+- **Migration**: [`prisma/migrations/20250825025300_remove_unique_user_service_constraint`](prisma/migrations/20250825025300_remove_unique_user_service_constraint/migration.sql:1)
+- **Business Logic Update**: Application-level validation now checks only active subscriptions
+- **Re-subscription Support**: Users can now re-subscribe to services after cancellation
+
+#### Custom Transaction ID System Implementation
+
+- **Format**: Implemented TXMP-XXX format (e.g., TXMP-101, TXMP-102) with auto-increment
+- **Database Migration**: [`prisma/migrations/20250825031600_custom_transaction_id`](prisma/migrations/20250825031600_custom_transaction_id/migration.sql:1)
+- **PostgreSQL Sequence**: Created `transaction_id_seq` starting from 101 for reliable auto-increment
+- **Utility Service**: [`src/utils/transactionId.js`](src/utils/transactionId.js:1) with generation, validation, and extraction functions
+- **Schema Update**: Added `customId String @unique` field to Transaction model
+- **Service Integration**: Updated all transaction creation across credit, payment, and admin services
+- **Testing**: Verified sequential increment and format validation (TXMP-105, TXMP-106, etc.)
+
+### Phase 3: Subscription Management API Implementation (Previously Completed)
 
 #### User Subscription System Architecture
 

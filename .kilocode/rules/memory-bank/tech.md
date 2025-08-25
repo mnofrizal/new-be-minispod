@@ -85,7 +85,8 @@ src/
 ├── utils/               # Utility functions
 │   ├── logger.js        # Winston logger
 │   ├── prisma.js        # Prisma client
-│   └── response.js      # Response formatter
+│   ├── response.js      # Response formatter
+│   └── transactionId.js # Custom transaction ID generator
 └── validations/         # Joi schemas
     ├── auth.validation.js
     └── user.validation.js
@@ -132,8 +133,10 @@ npm start
 - `rest/auth.rest` - Authentication endpoints
 - `rest/user.rest` - User management endpoints
 - `rest/catalog.rest` - Public catalog browsing endpoints
-- `rest/wallet.rest` - Wallet management and payment endpoints
+- `rest/wallet.rest` - Wallet management and payment endpoints (28 test cases)
+- `rest/subscription.rest` - User subscription management endpoints (28 test cases)
 - `rest/admin/manage-user.rest` - User management endpoints
+- `rest/admin/subscription.rest` - Admin subscription management endpoints (41 test cases)
 - `rest/admin/k8s-pods.rest` - Pod monitoring endpoints
 - `rest/admin/k8s-deployments.rest` - Deployment monitoring endpoints
 - `rest/admin/k8s-nodes.rest` - Node monitoring endpoints
@@ -162,6 +165,26 @@ npm start
 - `GET /api/wallet/transactions/:id/status` - Check transaction status
 - `POST /api/wallet/transactions/:id/cancel` - Cancel pending transaction
 - `POST /api/wallet/webhook/midtrans` - Midtrans payment webhook
+
+#### Subscription Management
+
+- `GET /api/subscriptions` - List user subscriptions
+- `POST /api/subscriptions` - Create new subscription
+- `GET /api/subscriptions/:id` - Get subscription details
+- `PUT /api/subscriptions/:id/upgrade` - Upgrade subscription
+- `DELETE /api/subscriptions/:id/cancel` - Cancel subscription
+- `GET /api/subscriptions/:id/usage` - Get subscription usage
+
+#### Admin Subscription Management
+
+- `GET /api/admin/subscriptions` - List all subscriptions
+- `POST /api/admin/subscriptions` - Create subscription for user (with bonus option)
+- `GET /api/admin/subscriptions/:id` - Get subscription details
+- `PUT /api/admin/subscriptions/:id/upgrade` - Upgrade user subscription (with bonus option)
+- `POST /api/admin/subscriptions/:id/refund` - Process subscription refund
+- `PUT /api/admin/subscriptions/:id/extend` - Extend subscription period
+- `DELETE /api/admin/subscriptions/:id/force-cancel` - Force cancel with advanced options
+- `PUT /api/admin/subscriptions/:id/expire` - Set subscription to expired status
 
 #### Kubernetes Monitoring (Admin Only)
 
@@ -194,8 +217,10 @@ npm start
 - Prisma for type-safe database operations
 - Automatic cascade deletion for related records
 - Unique constraints on email and phone fields
-- Enhanced decimal precision (DECIMAL(15,2)) for currency fields
+- Int currency fields for IDR precision (avoiding decimal issues)
 - Complete service catalog schema with credit-based billing
+- Custom transaction ID format (TXMP-XXX) with PostgreSQL sequence auto-increment
+- Re-subscription support after cancellation (removed unique user-service constraint)
 
 ```
 
