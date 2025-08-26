@@ -34,6 +34,28 @@ const getAllDeployments = async () => {
         containers: containers.map((c) => ({
           name: c.name,
           image: c.image,
+          resources: {
+            requests: {
+              cpu: c.resources?.requests?.cpu || "0m",
+              memory: c.resources?.requests?.memory || "0Mi",
+            },
+            limits: {
+              cpu: c.resources?.limits?.cpu || "0m",
+              memory: c.resources?.limits?.memory || "0Mi",
+            },
+          },
+          ports:
+            c.ports?.map((p) => ({
+              containerPort: p.containerPort,
+              name: p.name,
+              protocol: p.protocol || "TCP",
+            })) || [],
+          volumeMounts:
+            c.volumeMounts?.map((vm) => ({
+              name: vm.name,
+              mountPath: vm.mountPath,
+              readOnly: vm.readOnly || false,
+            })) || [],
         })),
         images,
         createdAt: deployment.metadata.creationTimestamp,

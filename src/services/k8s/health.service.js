@@ -4,6 +4,7 @@ import {
   getMetricsApi,
   isK8sAvailable,
 } from "../../config/kubernetes.js";
+import k8sHelper from "../../utils/k8s-helper.js";
 import prisma from "../../utils/prisma.js";
 import logger from "../../utils/logger.js";
 
@@ -234,54 +235,36 @@ const checkDeploymentHealth = async (deploymentName, namespace) => {
  */
 const checkPodHealth = async (deploymentName, namespace) => {
   try {
-    const k8sApi = getK8sClient();
-    const response = await k8sApi.listNamespacedPod({
-      namespace: namespace,
-      labelSelector: `app=${deploymentName}`,
-    });
+    // Use the k8s-helper function which already handles correct label selectors
+    const pods = await k8sHelper.getPodsForDeployment(
+      deploymentName,
+      namespace
+    );
 
-    const responseData = response.body || response;
-    if (!responseData || !responseData.items) {
-      logger.error(
-        "Invalid response structure from Kubernetes API:",
-        responseData
-      );
-      throw new Error("Invalid response from Kubernetes API");
-    }
+    // Transform the pod data to match health service format
+    const healthPods = pods.map((pod) => ({
+      name: pod.name,
+      phase: pod.status,
+      isReady: pod.ready,
+      restarts: pod.restarts,
+      startTime: pod.createdAt,
+      containerStatuses: [], // k8s-helper doesn't provide detailed container status, but we have the summary
+    }));
 
-    const pods = responseData.items.map((pod) => {
-      const containerStatuses = pod.status?.containerStatuses || [];
-      const isReady = containerStatuses.every((cs) => cs.ready);
-      const restarts = containerStatuses.reduce(
-        (acc, cs) => acc + cs.restartCount,
-        0
-      );
-
-      return {
-        name: pod.metadata.name,
-        phase: pod.status?.phase,
-        isReady,
-        restarts,
-        startTime: pod.status?.startTime,
-        containerStatuses: containerStatuses.map((cs) => ({
-          name: cs.name,
-          ready: cs.ready,
-          restartCount: cs.restartCount,
-          state: cs.state,
-        })),
-      };
-    });
-
-    const healthyPods = pods.filter(
+    const healthyPods = healthPods.filter(
       (pod) => pod.isReady && pod.phase === "Running"
     ).length;
-    const unhealthyPods = pods.length - healthyPods;
+    const unhealthyPods = healthPods.length - healthyPods;
+
+    logger.info(
+      `Health check found ${healthPods.length} pods for deployment ${deploymentName}`
+    );
 
     return {
-      totalPods: pods.length,
+      totalPods: healthPods.length,
       healthyPods,
       unhealthyPods,
-      pods,
+      pods: healthPods,
     };
   } catch (error) {
     logger.error(

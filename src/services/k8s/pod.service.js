@@ -109,7 +109,35 @@ const getAllPods = async () => {
             name: c.name,
             image: c.image,
             ready: containerStatus?.ready || false,
+            resources: {
+              requests: {
+                cpu: c.resources?.requests?.cpu || "0m",
+                memory: c.resources?.requests?.memory || "0Mi",
+                ...(c.resources?.requests?.storage && {
+                  storage: c.resources.requests.storage,
+                }),
+              },
+              limits: {
+                cpu: c.resources?.limits?.cpu || "0m",
+                memory: c.resources?.limits?.memory || "0Mi",
+                ...(c.resources?.limits?.storage && {
+                  storage: c.resources.limits.storage,
+                }),
+              },
+            },
             usage: containerMetrics?.usage || null,
+            ports:
+              c.ports?.map((p) => ({
+                containerPort: p.containerPort,
+                name: p.name,
+                protocol: p.protocol || "TCP",
+              })) || [],
+            volumeMounts:
+              c.volumeMounts?.map((vm) => ({
+                name: vm.name,
+                mountPath: vm.mountPath,
+                readOnly: vm.readOnly || false,
+              })) || [],
           };
         });
 

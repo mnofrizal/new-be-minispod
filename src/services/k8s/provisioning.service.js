@@ -234,12 +234,33 @@ const provisionKubernetesResources = async (
       throw new Error("Deployment failed to become ready within timeout");
     }
 
-    // Step 8: Update instance status to RUNNING
+    // Step 8: Get the actual pod name created by Kubernetes
+    logger.info(
+      `Getting pod information for deployment: ${instance.deploymentName}`
+    );
+    const pods = await k8sHelper.getPodsForDeployment(
+      instance.deploymentName,
+      instance.namespace
+    );
+
+    let podName = null;
+    if (pods && pods.length > 0) {
+      // Get the first running pod name
+      const runningPod =
+        pods.find((pod) => pod.status === "Running") || pods[0];
+      podName = runningPod.name;
+      logger.info(`Found pod name: ${podName} for instance: ${instanceId}`);
+    } else {
+      logger.warn(`No pods found for deployment: ${instance.deploymentName}`);
+    }
+
+    // Step 9: Update instance status to RUNNING with actual pod name
     await prisma.serviceInstance.update({
       where: { id: instanceId },
       data: {
         status: "RUNNING",
         healthStatus: "Healthy",
+        podName: podName,
         lastStarted: new Date(),
         lastHealthCheck: new Date(),
       },

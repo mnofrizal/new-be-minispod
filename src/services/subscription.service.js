@@ -204,16 +204,21 @@ const createSubscription = async (userId, planId, options = {}) => {
 };
 
 /**
- * Upgrade an existing subscription to a higher plan
+ * Upgrade or downgrade an existing subscription to a different plan
  * @param {string} subscriptionId - Subscription ID
  * @param {string} newPlanId - New plan ID
  * @param {Object} options - Additional options
- * @param {boolean} options.skipCreditCheck - Skip credit validation and deduction (for admin bonus upgrades)
- * @param {string} options.customDescription - Custom description for transaction (for admin bonus upgrades)
- * @returns {Promise<Object>} Upgraded subscription
+ * @param {boolean} options.skipCreditCheck - Skip credit validation and deduction (for admin bonus changes)
+ * @param {string} options.customDescription - Custom description for transaction (for admin bonus changes)
+ * @param {boolean} options.allowDowngrade - Allow downgrading to lower tier plans (admin only)
+ * @returns {Promise<Object>} Updated subscription
  */
 const upgradeSubscription = async (subscriptionId, newPlanId, options = {}) => {
-  const { skipCreditCheck = false, customDescription = null } = options;
+  const {
+    skipCreditCheck = false,
+    customDescription = null,
+    allowDowngrade = false,
+  } = options;
   return await prisma.$transaction(async (tx) => {
     // Get current subscription
     const subscription = await tx.subscription.findUnique({
@@ -285,7 +290,7 @@ const upgradeSubscription = async (subscriptionId, newPlanId, options = {}) => {
     const currentTier = planTypeOrder[subscription.plan.planType];
     const newTier = planTypeOrder[newPlan.planType];
 
-    if (newTier <= currentTier) {
+    if (newTier <= currentTier && !allowDowngrade) {
       throw new Error("Can only upgrade to a higher tier plan");
     }
 
@@ -312,8 +317,9 @@ const upgradeSubscription = async (subscriptionId, newPlanId, options = {}) => {
     const currentMonthlyPrice = subscription.plan.monthlyPrice;
     const newMonthlyPrice = newPlan.monthlyPrice;
     const upgradeCost = (newMonthlyPrice - currentMonthlyPrice) * proratedRatio;
+    const isDowngrade = newMonthlyPrice < currentMonthlyPrice;
 
-    // Check if user has sufficient credit for upgrade (unless skipped by admin)
+    // Check if user has sufficient credit for upgrade (unless skipped by admin or it's a downgrade)
     if (
       !skipCreditCheck &&
       upgradeCost > 0 &&
@@ -328,43 +334,65 @@ const upgradeSubscription = async (subscriptionId, newPlanId, options = {}) => {
     await quotaService.releaseQuota(subscription.planId);
     await quotaService.allocateQuota(newPlanId);
 
-    // Handle upgrade cost - always create transaction record
+    // Handle upgrade/downgrade cost - always create transaction record
     let actualCharge = skipCreditCheck ? 0 : upgradeCost;
-    const upgradeDescription =
+    const changeType = isDowngrade ? "downgrade" : "upgrade";
+    const changeDescription =
       customDescription ||
-      `Upgrade ${subscription.service.name} from ${subscription.plan.name} to ${newPlan.name}`;
+      `${changeType.charAt(0).toUpperCase() + changeType.slice(1)} ${
+        subscription.service.name
+      } from ${subscription.plan.name} to ${newPlan.name}`;
 
-    if (upgradeCost > 0) {
+    if (upgradeCost !== 0) {
       if (!skipCreditCheck) {
-        // Regular upgrade - deduct credit normally
-        await creditService.deductCredit(
-          subscription.userId,
-          upgradeCost,
-          upgradeDescription,
-          {
-            type: "UPGRADE",
-            subscriptionId,
-            oldPlanId: subscription.planId,
-            newPlanId,
-            proratedAmount: upgradeCost,
-            daysRemaining,
-          }
-        );
+        if (upgradeCost > 0) {
+          // Regular upgrade - deduct credit
+          await creditService.deductCredit(
+            subscription.userId,
+            upgradeCost,
+            changeDescription,
+            {
+              type: "UPGRADE",
+              subscriptionId,
+              oldPlanId: subscription.planId,
+              newPlanId,
+              proratedAmount: upgradeCost,
+              daysRemaining,
+            }
+          );
+        } else {
+          // Downgrade - add credit (refund difference)
+          await creditService.addCredit(
+            subscription.userId,
+            Math.abs(upgradeCost), // Make positive for credit addition
+            changeDescription,
+            {
+              type: "REFUND",
+              status: "COMPLETED",
+              subscriptionId,
+              oldPlanId: subscription.planId,
+              newPlanId,
+              proratedAmount: Math.abs(upgradeCost),
+              daysRemaining,
+              isDowngradeRefund: true,
+            }
+          );
+        }
       } else {
-        // Bonus upgrade - create IDR 0 transaction record for audit trail
+        // Admin bonus upgrade/downgrade - create IDR 0 transaction record for audit trail
         await creditService.addCredit(
           subscription.userId,
           0, // IDR 0 amount
-          upgradeDescription,
+          changeDescription,
           {
-            type: "UPGRADE",
+            type: upgradeCost > 0 ? "UPGRADE" : "REFUND",
             status: "COMPLETED",
             subscriptionId,
             oldPlanId: subscription.planId,
             newPlanId,
-            proratedAmount: upgradeCost,
+            proratedAmount: Math.abs(upgradeCost),
             daysRemaining,
-            isBonusUpgrade: true,
+            isBonusChange: true,
           }
         );
       }
@@ -400,8 +428,51 @@ const upgradeSubscription = async (subscriptionId, newPlanId, options = {}) => {
             features: true,
           },
         },
+        instances: {
+          where: { status: { in: ["RUNNING", "PENDING", "PROVISIONING"] } },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+          },
+        },
       },
     });
+
+    // Update the Kubernetes instance with new resource limits
+    let instanceUpdateResult = null;
+    if (
+      updatedSubscription.instances &&
+      updatedSubscription.instances.length > 0
+    ) {
+      const instance = updatedSubscription.instances[0]; // Assuming one instance per subscription
+      try {
+        logger.info(
+          `Upgrading Kubernetes instance ${instance.id} with new plan resources`
+        );
+        instanceUpdateResult = await provisioningService.updateServiceInstance(
+          instance.id,
+          {
+            id: newPlan.id,
+            name: newPlan.name,
+            planType: newPlan.planType,
+            cpuMilli: updatedSubscription.plan.cpuMilli,
+            memoryMb: updatedSubscription.plan.memoryMb,
+            storageGb: updatedSubscription.plan.storageGb,
+          }
+        );
+        logger.info(
+          `Successfully updated Kubernetes instance ${instance.id} resources`
+        );
+      } catch (error) {
+        logger.error(
+          `Failed to update Kubernetes instance ${instance.id} during subscription upgrade:`,
+          error
+        );
+        // Don't throw error, just log it. The subscription upgrade should still succeed.
+        instanceUpdateResult = { error: error.message };
+      }
+    }
 
     return {
       subscription: updatedSubscription,
@@ -409,14 +480,27 @@ const upgradeSubscription = async (subscriptionId, newPlanId, options = {}) => {
       actualCharge: actualCharge,
       proratedDays: daysRemaining,
       isBonusUpgrade: skipCreditCheck,
+      instanceUpdateResult,
       message: skipCreditCheck
-        ? "Bonus upgrade completed successfully (no charge)"
-        : "Subscription upgraded successfully",
+        ? `Bonus ${changeType} completed successfully (no charge)`
+        : `Subscription ${changeType}d successfully`,
       nextSteps: [
-        "Service resources will be updated",
-        "No downtime expected during the upgrade",
+        instanceUpdateResult && !instanceUpdateResult.error
+          ? "Service resources have been updated in Kubernetes"
+          : "Service resources will be updated shortly",
+        `No downtime expected during the ${changeType}`,
         ...(skipCreditCheck
-          ? ["This is a bonus upgrade - no credit was deducted"]
+          ? [
+              `This is a bonus ${changeType} - no credit was ${
+                isDowngrade ? "added" : "deducted"
+              }`,
+            ]
+          : isDowngrade
+          ? [
+              `Prorated refund of ${Math.abs(
+                upgradeCost
+              )} IDR has been added to your credit balance`,
+            ]
           : []),
       ],
     };

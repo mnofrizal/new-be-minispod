@@ -54,7 +54,7 @@ Content-Type: application/json
 }
 
 ### 7. Get Instance Logs
-GET {{baseUrl}}/instances/{{instanceId}}/logs
+GET {{baseUrl}}/instances/cmesh063j0005vv2d9du7epdv/logs
 Authorization: Bearer {{jwt_token}}
 
 ### 8. Get Instance Logs with Parameters
@@ -62,7 +62,7 @@ GET {{baseUrl}}/instances/{{instanceId}}/logs?lines=50&follow=false
 Authorization: Bearer {{jwt_token}}
 
 ### 9. Restart Service Instance
-POST {{baseUrl}}/instances/{{instanceId}}/restart
+POST {{baseUrl}}/instances/cmesh063j0005vv2d9du7epdv/restart
 Authorization: Bearer {{jwt_token}}
 
 ### 10. Terminate Service Instance

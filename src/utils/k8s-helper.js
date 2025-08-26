@@ -552,12 +552,50 @@ const getPodsForDeployment = async (deploymentName, namespace) => {
   const k8sApi = getK8sClient();
 
   try {
+    // First try to get the deployment to find the correct label selector
+    const appsV1Api = getAppsV1ApiClient();
+    let labelSelector = `app=${deploymentName}`;
+
+    try {
+      const deploymentResponse = await appsV1Api.readNamespacedDeployment({
+        name: deploymentName,
+        namespace: namespace,
+      });
+
+      const deployment = deploymentResponse.body || deploymentResponse;
+      if (
+        deployment &&
+        deployment.spec &&
+        deployment.spec.selector &&
+        deployment.spec.selector.matchLabels
+      ) {
+        // Use the actual matchLabels from the deployment
+        const matchLabels = deployment.spec.selector.matchLabels;
+        labelSelector = Object.entries(matchLabels)
+          .map(([key, value]) => `${key}=${value}`)
+          .join(",");
+        logger.info(`Using label selector from deployment: ${labelSelector}`);
+      }
+    } catch (deploymentError) {
+      logger.warn(
+        `Could not read deployment ${deploymentName}, using fallback label selector: ${labelSelector}`
+      );
+    }
+
     const response = await k8sApi.listNamespacedPod({
       namespace: namespace,
-      labelSelector: `app=${deploymentName}`,
+      labelSelector: labelSelector,
     });
 
-    return response.body.items.map((pod) => ({
+    // Handle different response structures from Kubernetes client
+    const podList = response.body || response;
+    const items = podList.items || [];
+
+    logger.info(
+      `Found ${items.length} pods for deployment ${deploymentName} in namespace ${namespace} with selector: ${labelSelector}`
+    );
+
+    return items.map((pod) => ({
       name: pod.metadata.name,
       status: pod.status.phase,
       ready: pod.status.containerStatuses?.every((cs) => cs.ready) || false,

@@ -896,14 +896,7 @@ const upgradeSubscriptionForUser = async (req, res) => {
     const currentTier = planTypeOrder[subscription.plan.planType];
     const newTier = planTypeOrder[newPlan.planType];
 
-    if (newTier <= currentTier) {
-      return sendResponse(
-        res,
-        StatusCodes.BAD_REQUEST,
-        null,
-        "Can only upgrade to a higher tier plan"
-      );
-    }
+    // Admin can upgrade or downgrade - no tier restriction
 
     // Calculate prorated cost for validation
     const now = new Date();
@@ -937,15 +930,18 @@ const upgradeSubscriptionForUser = async (req, res) => {
       );
     }
 
-    // Upgrade subscription using the existing service with skipCreditCheck option and custom description
+    // Upgrade/downgrade subscription using the existing service with skipCreditCheck option and custom description
     const result = await subscriptionService.upgradeSubscription(
       subscriptionId,
       newPlanId,
       {
         skipCreditCheck,
+        allowDowngrade: true, // Allow admins to downgrade subscriptions
         customDescription:
           reason ||
-          `Admin upgrade: ${subscription.service.name} from ${subscription.plan.name} to ${newPlan.name}`,
+          `Admin ${newTier > currentTier ? "upgrade" : "downgrade"}: ${
+            subscription.service.name
+          } from ${subscription.plan.name} to ${newPlan.name}`,
       }
     );
 
