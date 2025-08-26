@@ -1,6 +1,11 @@
 import { StatusCodes } from "http-status-codes";
 import sendResponse from "../utils/response.js";
 import subscriptionService from "../services/subscription.service.js";
+import {
+  getK8sClient,
+  getMetricsApi,
+  isK8sAvailable,
+} from "../config/kubernetes.js";
 import logger from "../utils/logger.js";
 
 /**
@@ -305,6 +310,215 @@ const validateSubscription = async (req, res) => {
 };
 
 /**
+ * Get subscription instance metrics
+ * GET /api/subscriptions/:subscriptionId/metrics
+ */
+const getSubscriptionMetrics = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { subscriptionId } = req.params;
+
+    // Verify subscription belongs to user and get instance details
+    const subscription = await subscriptionService.getSubscriptionDetails(
+      subscriptionId,
+      userId
+    );
+
+    if (!subscription) {
+      return sendResponse(
+        res,
+        StatusCodes.NOT_FOUND,
+        null,
+        "Subscription not found"
+      );
+    }
+
+    // Check if subscription has an active service instance
+    if (!subscription.instances || subscription.instances.length === 0) {
+      return sendResponse(
+        res,
+        StatusCodes.NOT_FOUND,
+        null,
+        "No service instance found for this subscription"
+      );
+    }
+
+    const instance = subscription.instances.find(
+      (inst) => inst.status === "RUNNING"
+    );
+
+    if (!instance) {
+      return sendResponse(
+        res,
+        StatusCodes.NOT_FOUND,
+        null,
+        "No running service instance found"
+      );
+    }
+
+    if (!instance.podName || !instance.namespace) {
+      return sendResponse(
+        res,
+        StatusCodes.BAD_REQUEST,
+        null,
+        "Instance missing pod name or namespace information"
+      );
+    }
+
+    // Check if Kubernetes is available
+    if (!isK8sAvailable()) {
+      return sendResponse(
+        res,
+        StatusCodes.SERVICE_UNAVAILABLE,
+        null,
+        "Kubernetes cluster not available"
+      );
+    }
+
+    // Get pod metrics
+    const metrics = await getPodMetrics(instance.podName, instance.namespace);
+
+    if (!metrics) {
+      return sendResponse(
+        res,
+        StatusCodes.NOT_FOUND,
+        null,
+        "Metrics not available for this instance"
+      );
+    }
+
+    // Get resource limits from subscription plan for comparison
+    const resourceLimits = {
+      cpu: `${subscription.plan.cpuMilli}m`,
+      memory: `${subscription.plan.memoryMb}Mi`,
+      storage: `${subscription.plan.storageGb}Gi`,
+    };
+
+    // Simplify the response for frontend consumption
+    const container = metrics.containers[0]; // Get first container (usually the main one)
+
+    const response = {
+      instanceId: instance.id,
+      status: instance.status,
+      cpu: {
+        usage: container.usage.cpu.millicores,
+        limit: parseInt(subscription.plan.cpuMilli),
+        percentage: Math.round(
+          (container.usage.cpu.millicores / subscription.plan.cpuMilli) * 100
+        ),
+      },
+      memory: {
+        usage: container.usage.memory.megabytes,
+        limit: subscription.plan.memoryMb,
+        percentage: Math.round(
+          (container.usage.memory.megabytes / subscription.plan.memoryMb) * 100
+        ),
+      },
+      timestamp: metrics.timestamp,
+    };
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      response,
+      "Subscription metrics retrieved successfully"
+    );
+  } catch (error) {
+    logger.error("Get subscription metrics error:", error);
+
+    if (error.message === "Subscription not found") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to retrieve subscription metrics"
+    );
+  }
+};
+
+/**
+ * Get pod metrics helper function
+ * @param {string} podName - Pod name
+ * @param {string} namespace - Namespace
+ * @returns {Promise<Object|null>} Pod metrics
+ */
+const getPodMetrics = async (podName, namespace) => {
+  try {
+    const metricsApi = getMetricsApi();
+    if (!metricsApi) {
+      return null;
+    }
+
+    const response = await metricsApi.getPodMetrics({ namespace });
+
+    // Handle different response structures
+    const metricsData = response.metrics || response.body || response;
+    const items = metricsData.items || [];
+
+    const podMetric = items.find((item) => item.metadata.name === podName);
+
+    if (!podMetric) {
+      logger.warn(
+        `No metrics found for pod ${podName} in namespace ${namespace}. Available pods: ${items
+          .map((item) => item.metadata.name)
+          .join(", ")}`
+      );
+      return null;
+    }
+
+    const containers = podMetric.containers.map((container) => {
+      const cpuRaw = container.usage.cpu;
+      const memoryRaw = container.usage.memory;
+
+      const cpuNanocores = parseInt(cpuRaw.replace("n", ""));
+      const cpuMillicores = Math.round(cpuNanocores / 1000000);
+      const cpuCores = parseFloat((cpuNanocores / 1000000000).toFixed(2));
+
+      const memoryKiloBytes = parseInt(memoryRaw.replace("Ki", ""));
+      const memoryBytes = memoryKiloBytes * 1024;
+      const memoryMegabytes = parseFloat(
+        (memoryBytes / 1024 / 1024).toFixed(2)
+      );
+      const memoryGigabytes = parseFloat(
+        (memoryBytes / 1024 / 1024 / 1024).toFixed(2)
+      );
+
+      return {
+        name: container.name,
+        usage: {
+          cpu: {
+            raw: cpuRaw,
+            millicores: cpuMillicores,
+            cores: cpuCores,
+          },
+          memory: {
+            raw: memoryRaw,
+            bytes: memoryBytes,
+            megabytes: memoryMegabytes,
+            gigabytes: memoryGigabytes,
+          },
+        },
+      };
+    });
+
+    return {
+      timestamp: podMetric.timestamp,
+      window: podMetric.window,
+      containers,
+    };
+  } catch (error) {
+    logger.warn(
+      `Failed to get metrics for pod ${namespace}/${podName}:`,
+      error.message
+    );
+    return null;
+  }
+};
+
+/**
  * Helper function to get appropriate status code for validation errors
  */
 function getValidationStatusCode(errorCode) {
@@ -331,4 +545,5 @@ export default {
   upgradeSubscription,
   cancelSubscription,
   validateSubscription,
+  getSubscriptionMetrics,
 };

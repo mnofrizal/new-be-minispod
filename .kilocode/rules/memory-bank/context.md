@@ -14,6 +14,8 @@ The backend API has **completed Phase 4: Service Provisioning & Instance Managem
 - **Enhanced Admin Features**: Added subscription expiration and advanced force-cancel capabilities
 - **Database Schema Improvements**: Resolved unique constraint issues and implemented custom transaction IDs
 - **Transaction System Enhancement**: Implemented TXMP-XXX format with PostgreSQL sequence-based auto-increment
+- **Pod Name Synchronization Fix**: Resolved critical issue where database stored outdated pod names after rolling updates
+- **Subscription Metrics Endpoint**: Added real-time metrics API for frontend polling with simplified response structure
 
 ## Recent Implementation Status
 
@@ -59,7 +61,7 @@ The backend API has **completed Phase 4: Service Provisioning & Instance Managem
 - **Transaction Lifecycle**: Complete status tracking and cancellation support
 - **Database Precision Fix**: Resolved overflow errors with currency conversion to Int
 
-**Phase 3: Subscription Management API (Just Completed):**
+**Phase 3: Subscription Management API (Completed):**
 
 - **User Subscription Controller**: 6 comprehensive user subscription endpoints
 - **User Subscription Routes**: JWT-authenticated routes for subscription management
@@ -72,8 +74,9 @@ The backend API has **completed Phase 4: Service Provisioning & Instance Managem
 - **Subscription Lifecycle**: Create, upgrade, cancel, refund, extend, and force-cancel capabilities
 - **Business Logic**: Upgrade-only policy, prorated billing, quota management
 - **Comprehensive Testing**: 28 user test cases + 41 admin test cases
+- **Subscription Metrics Endpoint**: Real-time metrics API for frontend polling with simplified response structure
 
-**Phase 4: Service Provisioning & Instance Management (Just Completed):**
+**Phase 4: Service Provisioning & Instance Management (Completed):**
 
 - **Kubernetes Provisioning Service**: Complete automated service deployment system
 - **Service Instance Management**: Full lifecycle management with 6 endpoints
@@ -83,6 +86,7 @@ The backend API has **completed Phase 4: Service Provisioning & Instance Managem
 - **Resource Cleanup**: Automatic termination on subscription cancellation
 - **End-to-End Integration**: Verified subscription-to-deployment workflow
 - **Production Readiness**: Battle-tested deployment logic with extensive debugging
+- **Pod Name Synchronization**: Fixed critical issue where database stored outdated pod names after Kubernetes rolling updates
 
 ### 🔄 Current State
 
@@ -91,11 +95,11 @@ The backend API has **completed Phase 4: Service Provisioning & Instance Managem
 - **Core Services**: All 6 services modernized with const-based architecture and tested
 - **Payment Integration**: Midtrans fully operational with webhook processing and custom transaction IDs
 - **Wallet System**: Production-ready with comprehensive error handling
-- **Subscription System**: Complete user and admin subscription management with advanced features
-- **Kubernetes Integration**: Full service provisioning and instance management operational
+- **Subscription System**: Complete user and admin subscription management with advanced features and real-time metrics
+- **Kubernetes Integration**: Full service provisioning and instance management operational with synchronized pod names
 - **Architecture**: Modernized codebase with consistent const-based patterns
 - **Transaction System**: Custom TXMP-XXX ID format with PostgreSQL sequence auto-increment
-- **Progress**: 100% complete - All core platform features implemented
+- **Progress**: 100% complete - All core platform features implemented with production-ready monitoring
 
 ## Next Steps
 
@@ -124,7 +128,53 @@ The backend API has **completed Phase 4: Service Provisioning & Instance Managem
 
 ## Recent Implementation History
 
-### Phase 4: Service Provisioning & Instance Management (Just Completed)
+### Phase 4.5: Pod Name Synchronization & Metrics Enhancement (Just Completed - August 26, 2025)
+
+#### Pod Name Synchronization Critical Fix
+
+- **Problem**: When subscription upgrades triggered Kubernetes rolling updates, new pods got different names but database stored old pod names
+- **Root Cause**: Pod selection logic filtered for "Running" pods only, missing newly created pods in "Creating" or "Pending" state
+- **Location**: [`src/services/k8s/provisioning.service.js:439-450`](src/services/k8s/provisioning.service.js:439) - Enhanced updateServiceInstance method
+- **Solution Applied**:
+  1. **Status-Agnostic Selection**: Removed filtering for "Running" pods only
+  2. **Timestamp-Based Selection**: Always selects newest pod by creation timestamp regardless of status
+  3. **Smart Timing**: Added 3-second delay after deployment ready to allow new pod creation
+  4. **Database Sync**: Automatically updates pod name in database after subscription upgrades
+- **Maintenance Function**: [`src/services/k8s/provisioning.service.js:738-748`](src/services/k8s/provisioning.service.js:738) - refreshInstancePodName for manual synchronization
+- **Result**: Database pod names now always reflect current Kubernetes pod names after rolling updates
+
+#### Subscription Metrics Endpoint Implementation
+
+- **New Endpoint**: `GET /api/subscriptions/:subscriptionId/metrics` - Real-time metrics for frontend polling
+- **Controller**: [`src/controllers/subscription.controller.js:316-420`](src/controllers/subscription.controller.js:316) - Complete metrics endpoint with simplified response
+- **Route**: [`src/routes/subscription.routes.js:47-51`](src/routes/subscription.routes.js:47) - JWT-authenticated metrics route
+- **Features**:
+  - **Pre-calculated Percentages**: CPU and memory usage as percentages (usage/limit \* 100)
+  - **Simple Units**: CPU in millicores, memory in MB
+  - **Clean Structure**: Only essential data for dashboard display
+  - **Real-time Ready**: Perfect for 5-10 second polling intervals
+  - **Error Handling**: Graceful handling of missing instances or K8s unavailability
+- **Response Structure**:
+  ```json
+  {
+    "instanceId": "cmeslquw90007vv4azb9pes44",
+    "status": "RUNNING",
+    "cpu": { "used": 7, "limit": 500, "percentage": 1 },
+    "memory": { "used": 225.93, "limit": 1024, "percentage": 22 },
+    "urls": { "public": "https://...", "admin": "https://..." },
+    "timestamp": "2025-08-26T14:13:37Z"
+  }
+  ```
+- **Testing**: [`rest/subscription.rest:363-445`](rest/subscription.rest:363) - Comprehensive test suite with polling simulation
+
+#### Kubernetes Monitoring Enhancements
+
+- **Pod Endpoint Enhancement**: [`src/services/k8s/pod.service.js:108-141`](src/services/k8s/pod.service.js:108) - Added resource limits and requests information
+- **Deployment Endpoint Enhancement**: [`src/services/k8s/deployment.service.js:34-53`](src/services/k8s/deployment.service.js:34) - Added resource limits and volume mount information
+- **Complete Resource Visibility**: Both endpoints now show allocated resources AND actual usage metrics
+- **Admin Benefits**: Verify subscription upgrades actually update Kubernetes resource limits
+
+### Phase 4: Service Provisioning & Instance Management (Previously Completed)
 
 #### Kubernetes Provisioning System Implementation
 
@@ -171,6 +221,7 @@ The backend API has **completed Phase 4: Service Provisioning & Instance Managem
 - **Memory Allocation**: Doubled memory limits to prevent OOMKilled errors
 - **Deployment Readiness Logic**: Implemented industry best-practice status condition checking
 - **Resource Cleanup Integration**: Unified subscription cancellation with Kubernetes resource termination
+- **Pod Name Synchronization**: Fixed critical issue where database stored outdated pod names after rolling updates
 
 #### End-to-End Integration
 
@@ -178,6 +229,7 @@ The backend API has **completed Phase 4: Service Provisioning & Instance Managem
 - **Cancellation Integration**: Immediate resource cleanup on subscription cancellation
 - **Admin Controls**: Enhanced admin endpoints with Kubernetes resource management
 - **Testing Verification**: Complete end-to-end workflow testing from subscription to deployment
+- **Metrics Integration**: Real-time monitoring and metrics collection for frontend consumption
 
 ### Phase 3.5: Architecture Modernization & Advanced Features (Previously Completed)
 
@@ -185,7 +237,7 @@ The backend API has **completed Phase 4: Service Provisioning & Instance Managem
 
 - **Scope**: Comprehensive modernization of 9 core files from class-based to const-based architecture
 - **Files Converted**:
-  - [`src/controllers/subscription.controller.js`](src/controllers/subscription.controller.js:1) - User subscription management
+  - [`src/controllers/subscription.controller.js`](src/controllers/subscription.controller.js:1) - User subscription management with metrics endpoint
   - [`src/controllers/wallet.controller.js`](src/controllers/wallet.controller.js:1) - Wallet and payment operations
   - [`src/controllers/admin/subscription.controller.js`](src/controllers/admin/subscription.controller.js:1) - Admin subscription management
   - [`src/services/payment/midtrans.service.js`](src/services/payment/midtrans.service.js:1) - Payment gateway integration
@@ -221,131 +273,3 @@ The backend API has **completed Phase 4: Service Provisioning & Instance Managem
 - **Schema Update**: Added `customId String @unique` field to Transaction model
 - **Service Integration**: Updated all transaction creation across credit, payment, and admin services
 - **Testing**: Verified sequential increment and format validation (TXMP-105, TXMP-106, etc.)
-
-### Phase 3: Subscription Management API Implementation (Previously Completed)
-
-#### User Subscription System Architecture
-
-- **Location**: [`src/controllers/subscription.controller.js`](src/controllers/subscription.controller.js:1), [`src/routes/subscription.routes.js`](src/routes/subscription.routes.js:1), [`src/validations/subscription.validation.js`](src/validations/subscription.validation.js:1)
-- **Features**: Complete user subscription management with 6 endpoints covering subscription creation, upgrade, cancellation, and management
-- **API Routes**: All routes under `/api/subscriptions/*` with JWT authentication required
-- **Testing**: [`rest/subscription.rest`](rest/subscription.rest:1) - 28 comprehensive test cases covering all user scenarios
-
-#### Admin Subscription Management System
-
-- **Location**: [`src/controllers/admin/subscription.controller.js`](src/controllers/admin/subscription.controller.js:1), [`src/routes/admin/subscription.routes.js`](src/routes/admin/subscription.routes.js:1), [`src/validations/admin/subscription.validation.js`](src/validations/admin/subscription.validation.js:1)
-- **Features**: Complete admin subscription management with 7 endpoints covering user subscription creation, management, refunds, extensions, and upgrades
-- **API Routes**: All routes under `/api/admin/subscriptions/*` with ADMINISTRATOR role required
-- **Testing**: [`rest/admin/subscription.rest`](rest/admin/subscription.rest:1) - 41 comprehensive test cases covering all admin scenarios
-
-#### Critical Prisma Decimal Arithmetic Bug (Fixed)
-
-- **Issue**: `462,000 + 150,000 = 462,000.150,000` concatenation instead of addition
-- **Root Cause**: Prisma Decimal arithmetic causing string concatenation instead of mathematical addition
-- **Location**: [`src/services/payment/midtrans.service.js`](src/services/payment/midtrans.service.js:205) - Credit balance updates
-- **Solution Applied**:
-  1. **Database Migration**: Converted all currency fields from DECIMAL to Int for IDR precision
-  2. **Migration**: Applied `20250824161700_change_currency_to_int` migration successfully
-  3. **Service Updates**: Updated all services to handle Int currency values
-  4. **Data Cleanup**: Created [`scripts/fix-contaminated-balance.js`](scripts/fix-contaminated-balance.js:1) to fix corrupted data
-- **Result**: All currency operations now work correctly with proper mathematical addition
-
-#### Subscription Controller Validation Error (Fixed)
-
-- **Issue**: `getValidationStatusCode is not defined` error in subscription controller
-- **Root Cause**: Imported validation helper function that didn't exist
-- **Location**: [`src/controllers/subscription.controller.js`](src/controllers/subscription.controller.js:1)
-- **Solution**: Converted to standalone validation function within controller
-- **Result**: All subscription endpoints now validate properly
-
-#### Admin Routes Middleware Error (Fixed)
-
-- **Issue**: `requireAdmin is not defined` import error in admin routes
-- **Root Cause**: Attempted to import non-existent middleware function
-- **Location**: [`src/routes/admin/subscription.routes.js`](src/routes/admin/subscription.routes.js:1)
-- **Solution**: Used existing `authorizeRoles("ADMINISTRATOR")` middleware pattern
-- **Result**: All admin routes now properly authenticate and authorize
-
-#### Bonus Subscription System Implementation
-
-- **Feature**: Admin capability to create free subscriptions for users
-- **Implementation**: `skipCreditCheck` option in subscription service bypasses credit validation and deduction
-- **Audit Trail**: Creates IDR 0 transaction records with custom admin reason for proper tracking
-- **Location**: [`src/services/subscription.service.js`](src/services/subscription.service.js:15) - Enhanced createSubscription method
-- **Admin Endpoint**: `POST /api/admin/subscriptions` with `skipCreditCheck: true` option
-
-#### Admin Upgrade Subscription System Implementation
-
-- **Feature**: Admin capability to upgrade user subscriptions with bonus upgrade support
-- **Implementation**: Enhanced `upgradeSubscription` method with `skipCreditCheck` and `customDescription` options
-- **Bonus Upgrades**: Admin can upgrade users without credit validation, creating IDR 0 audit trail
-- **Location**: [`src/services/subscription.service.js`](src/services/subscription.service.js:196) - Enhanced upgradeSubscription method
-- **Admin Endpoint**: `PUT /api/admin/subscriptions/:subscriptionId/upgrade` with bonus upgrade capability
-- **Controller**: [`src/controllers/admin/subscription.controller.js`](src/controllers/admin/subscription.controller.js:650) - upgradeSubscriptionForUser method
-
-#### Subscription Cancellation Policy Update
-
-- **Business Logic Change**: Updated cancellation to disable auto-renew only, keeping service active until end date
-- **No Automatic Refunds**: Refunds are now admin-only operations for better financial control
-- **User Experience**: Users keep service access for remaining subscription period
-- **Location**: [`src/services/subscription.service.js`](src/services/subscription.service.js:407) - cancelSubscription method
-
-#### Comprehensive Business Logic Implementation
-
-- **Upgrade-Only Policy**: Users can only upgrade to higher tier plans, no downgrades
-- **Same Service Restriction**: Upgrades must be within the same service category
-- **Prorated Billing**: Upgrade costs calculated based on remaining subscription days
-- **Quota Management**: Automatic quota allocation/release during subscription changes
-- **Transaction Audit**: Complete transaction history for all subscription operations
-
-### Phase 2.2: Wallet Management API Implementation (Previously Completed)
-
-#### Wallet System Architecture
-
-- **Location**: [`src/controllers/wallet.controller.js`](src/controllers/wallet.controller.js:1), [`src/routes/wallet.routes.js`](src/routes/wallet.routes.js:1), [`src/validations/wallet.validation.js`](src/validations/wallet.validation.js:1)
-- **Features**: Complete wallet management with 9 endpoints covering credit management, payment processing, and transaction handling
-- **API Routes**: All routes under `/api/wallet/*` with JWT authentication required
-- **Testing**: [`rest/wallet.rest`](rest/wallet.rest:1) - 28 comprehensive test cases covering all scenarios
-
-#### Midtrans Integration Enhancements
-
-- **Payment Methods**: Full support for Bank Transfer, E-Wallet, Credit Card, QRIS
-- **Webhook Processing**: Robust notification handling with proper transaction status updates
-- **Error Handling**: Comprehensive error logging and graceful failure handling
-- **Transaction Lifecycle**: Complete status tracking from PENDING → COMPLETED/FAILED/CANCELLED
-
-#### Validation System Improvements
-
-- **CUID Support**: Fixed transaction ID validation from UUID to CUID format to match Prisma defaults
-- **Comprehensive Schemas**: Joi validation for all wallet endpoints with proper error messages
-- **Parameter Validation**: Fixed validation middleware integration with proper object structure
-
-### Pod Service Response Structure (Previously Fixed)
-
-- **Issue**: Pod API was returning duplicate container information
-- **Location**: [`src/services/k8s/pod.service.js`](src/services/k8s/pod.service.js:91-130)
-- **Solution**: Merged container spec info with metrics into unified structure
-- **Result**: Single `containers[]` array with name, image, ready status, and usage metrics
-- **Improvement**: Added `metricsTimestamp` and `metricsWindow` at pod level for better data context
-
-### Kubernetes Network Monitoring (Previously Implemented)
-
-#### Ingress Endpoint Implementation
-
-- **Location**: [`src/services/k8s/ingress.service.js`](src/services/k8s/ingress.service.js:1), [`src/controllers/k8s/ingress.controller.js`](src/controllers/k8s/ingress.controller.js:1)
-- **Features**: Complete ingress monitoring with rules, hosts, TLS configuration, and backend services
-- **API**: `GET /api/admin/k8s/ingresses` - Admin-only endpoint for ingress resource monitoring
-- **Testing**: [`rest/admin/k8s-ingresses.rest`](rest/admin/k8s-ingresses.rest:1) - REST client for endpoint testing
-
-#### Service (Network) Endpoint Implementation
-
-- **Location**: [`src/services/k8s/service.service.js`](src/services/k8s/service.service.js:1), [`src/controllers/k8s/service.controller.js`](src/controllers/k8s/service.controller.js:1)
-- **Features**: Comprehensive service monitoring with ports, IPs, endpoints, and service types
-- **API**: `GET /api/admin/k8s/services` - Admin-only endpoint for Kubernetes Services monitoring
-- **Testing**: [`rest/admin/k8s-services.rest`](rest/admin/k8s-services.rest:1) - REST client for endpoint testing
-
-#### Infrastructure Enhancements
-
-- **Kubernetes Config**: Enhanced [`src/config/kubernetes.js`](src/config/kubernetes.js:1) with NetworkingV1Api client
-- **Route Integration**: Updated [`src/routes/index.routes.js`](src/routes/index.routes.js:1) with new network endpoints
-- **Consistent Architecture**: All new endpoints follow established controller-service-route patterns

@@ -359,3 +359,98 @@ Authorization: Bearer {{authToken}}
 # - createdAt, lastStarted, lastHealthCheck
 GET {{baseUrl}}/subscriptions
 Authorization: Bearer {{authToken}}
+
+### ============================================================================
+### SUBSCRIPTION METRICS ENDPOINT (NEW)
+### ============================================================================
+
+### Test 6: Get Subscription Metrics - Active Subscription
+GET {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/metrics
+Authorization: Bearer {{authToken}}
+
+### Test 7: Get Subscription Metrics - Non-existent Subscription (should fail)
+GET {{baseUrl}}/subscriptions/clnonexistentsubscription/metrics
+Authorization: Bearer {{authToken}}
+
+### Test 8: Get Subscription Metrics - No Running Instance (should fail)
+GET {{baseUrl}}/subscriptions/cmepwcp720009vvnxyl2rlof2/metrics
+Authorization: Bearer {{authToken}}
+
+### Test 9: Get Subscription Metrics - Without Authentication (should fail)
+GET {{baseUrl}}/subscriptions/cmepx4h1p0007vvjvrfhpft1i/metrics
+
+### Test 10: Get Subscription Metrics - Invalid Subscription ID Format (should fail)
+GET {{baseUrl}}/subscriptions/invalid_id_format/metrics
+Authorization: Bearer {{authToken}}
+
+### ============================================================================
+### METRICS POLLING SIMULATION (For Frontend)
+### ============================================================================
+
+### Polling Test 1: Get Metrics (simulate 5-second polling)
+GET {{baseUrl}}/subscriptions/cmepx4h1p0007vvjvrfhpft1i/metrics
+Authorization: Bearer {{authToken}}
+
+### Polling Test 2: Get Metrics Again (simulate next poll)
+GET {{baseUrl}}/subscriptions/cmepx4h1p0007vvjvrfhpft1i/metrics
+Authorization: Bearer {{authToken}}
+
+### Polling Test 3: Get Metrics Third Time (simulate continuous polling)
+GET {{baseUrl}}/subscriptions/cmepx4h1p0007vvjvrfhpft1i/metrics
+Authorization: Bearer {{authToken}}
+
+### ============================================================================
+### METRICS RESPONSE STRUCTURE NOTES
+### ============================================================================
+
+# Expected Metrics Response Structure:
+# {
+#   "success": true,
+#   "data": {
+#     "subscriptionId": "cmepx4h1p0007vvjvrfhpft1i",
+#     "instanceId": "cmeslquw90007vv4azb9pes44",
+#     "podName": "n8n-automation-ojnin1-meslquw8-5f946cdb9c-bxhjg",
+#     "namespace": "user-cmeqxj3jp0000vvzcbfojnin1",
+#     "status": "RUNNING",
+#     "resourceLimits": {
+#       "cpu": "500m",
+#       "memory": "512Mi",
+#       "storage": "1Gi"
+#     },
+#     "metrics": {
+#       "timestamp": "2025-08-26T13:45:30Z",
+#       "window": "1m",
+#       "containers": [
+#         {
+#           "name": "n8n",
+#           "usage": {
+#             "cpu": {
+#               "raw": "45000000n",
+#               "millicores": 45,
+#               "cores": 0.045
+#             },
+#             "memory": {
+#               "raw": "128Ki",
+#               "bytes": 131072,
+#               "megabytes": 0.125,
+#               "gigabytes": 0.0001
+#             }
+#           }
+#         }
+#       ]
+#     },
+#     "urls": {
+#       "public": "https://n8n-automation-user123.minispod.com",
+#       "admin": "https://n8n-automation-user123.minispod.com/admin"
+#     }
+#   },
+#   "message": "Subscription metrics retrieved successfully",
+#   "timestamp": "2025-08-26T13:45:30.123Z"
+# }
+
+# Frontend Polling Implementation Notes:
+# - Poll every 5-10 seconds for real-time metrics
+# - Handle 404 errors gracefully (instance not running)
+# - Handle 503 errors (Kubernetes unavailable)
+# - Cache previous values to show trends
+# - Display resource utilization as percentages (usage/limits * 100)

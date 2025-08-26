@@ -725,6 +725,8 @@ const getSubscriptionDetails = async (subscriptionId, userId) => {
           id: true,
           name: true,
           subdomain: true,
+          podName: true,
+          namespace: true,
           status: true,
           healthStatus: true,
           publicUrl: true,

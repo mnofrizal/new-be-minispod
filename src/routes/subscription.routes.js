@@ -44,6 +44,13 @@ router.get(
   subscriptionController.getSubscriptionDetails
 );
 
+// Get subscription metrics
+router.get(
+  "/:subscriptionId/metrics",
+  validate({ params: subscriptionIdValidation }),
+  subscriptionController.getSubscriptionMetrics
+);
+
 // Upgrade subscription
 router.put(
   "/:subscriptionId/upgrade",
