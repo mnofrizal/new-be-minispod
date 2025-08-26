@@ -8,12 +8,7 @@ import instanceRoutes from "./instance.routes.js";
 import adminUserRoutes from "./admin/users.routes.js";
 import adminSubscriptionRoutes from "./admin/subscription.routes.js";
 import adminHealthRoutes from "./admin/health.routes.js";
-import adminK8sNodeRoutes from "./admin/k8s/node.routes.js";
-import adminK8sNamespaceRoutes from "./admin/k8s/namespace.routes.js";
-import adminK8sDeploymentRoutes from "./admin/k8s/deployment.routes.js";
-import adminK8sPodRoutes from "./admin/k8s/pod.routes.js";
-import adminK8sIngressRoutes from "./admin/k8s/ingress.routes.js";
-import adminK8sServiceRoutes from "./admin/k8s/service.routes.js";
+import adminK8sRoutes from "./admin/k8s/index.js";
 
 const router = express.Router();
 
@@ -39,12 +34,7 @@ router.use("/user", userProfileRoutes);
 router.use("/admin/users", adminUserRoutes);
 router.use("/admin/subscriptions", adminSubscriptionRoutes);
 router.use("/admin/health", adminHealthRoutes);
-router.use("/admin/k8s/nodes", adminK8sNodeRoutes);
-router.use("/admin/k8s/namespaces", adminK8sNamespaceRoutes);
-router.use("/admin/k8s/deployments", adminK8sDeploymentRoutes);
-router.use("/admin/k8s/pods", adminK8sPodRoutes);
-router.use("/admin/k8s/ingresses", adminK8sIngressRoutes);
-router.use("/admin/k8s/services", adminK8sServiceRoutes);
+router.use("/admin/k8s", adminK8sRoutes);
 
 // Health check route
 router.get("/health", (req, res) => {

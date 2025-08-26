@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import "dotenv/config";
+import http from "http";
+import { initializeSocketIO } from "./config/socket.js";
 
 // Import routes
 import routes from "./routes/index.routes.js";
@@ -10,11 +12,18 @@ import healthService from "./services/k8s/health.service.js";
 import logger from "./utils/logger.js";
 
 const app = express();
+const server = http.createServer(app);
+
+// Initialize Socket.IO
+const io = initializeSocketIO(server);
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files from the 'public' directory
+app.use(express.static("public"));
 
 // Routes
 app.use("/api", routes);
@@ -73,10 +82,10 @@ process.on("SIGINT", () => {
   process.exit(0);
 });
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/api/health`);
-  logger.info(`MinisPod Backend API started on port ${PORT}`);
+  logger.info(`MinisPod Backend API with Socket.IO started on port ${PORT}`);
 });
 
-export default app;
+export { app, server };
