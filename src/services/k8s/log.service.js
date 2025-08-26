@@ -4,6 +4,7 @@ import logger from "../../utils/logger.js";
 import { Log } from "@kubernetes/client-node";
 import stream from "stream";
 import k8sHelper from "../../utils/k8s-helper.js";
+import { parseLogLine } from "../../utils/log-parser.js";
 
 /**
  * Finds the latest running pod for a given service instance.
@@ -103,7 +104,12 @@ const streamLogs = async (socket, subscriptionId) => {
 
   const logStream = new stream.PassThrough();
   logStream.on("data", (chunk) => {
-    socket.emit("log-data", chunk.toString());
+    const rawData = chunk.toString();
+    // Split data by newlines in case multiple log lines are received in one chunk
+    const lines = rawData.split("\n").filter((line) => line.trim() !== "");
+    lines.forEach((line) => {
+      socket.emit("log-data", parseLogLine(line));
+    });
   });
 
   try {
