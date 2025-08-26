@@ -423,10 +423,53 @@ const updateServiceInstance = async (instanceId, newPlan) => {
       );
     }
 
-    // Update instance record
+    // Get the new pod name after rolling update
+    // Wait a moment for the new pod to be created and become running
+    logger.info(
+      `Getting updated pod information for deployment: ${instance.deploymentName}`
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 3000)); // 3 second delay for new pod
+
+    const updatedPods = await k8sHelper.getPodsForDeployment(
+      instance.deploymentName,
+      instance.namespace
+    );
+
+    let newPodName = instance.podName; // Keep existing if no pods found
+    if (updatedPods && updatedPods.length > 0) {
+      // Sort pods by creation time (newest first) - ignore status
+      const sortedPods = updatedPods.sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+
+      // Always select the newest pod regardless of status
+      const selectedPod = sortedPods[0];
+      newPodName = selectedPod.name;
+
+      logger.info(
+        `Pod selection: Found ${updatedPods.length} pods. Selected newest: ${newPodName} (status: ${selectedPod.status}, created: ${selectedPod.createdAt})`
+      );
+      if (newPodName !== instance.podName) {
+        logger.info(
+          `Updated pod name from '${instance.podName}' to '${newPodName}' for instance: ${instanceId}`
+        );
+      } else {
+        logger.debug(
+          `Pod name unchanged for instance ${instanceId}: ${newPodName}`
+        );
+      }
+    } else {
+      logger.warn(
+        `No pods found for deployment after update: ${instance.deploymentName}. Keeping existing pod name: ${instance.podName}`
+      );
+    }
+
+    // Update instance record with new pod name
     await prisma.serviceInstance.update({
       where: { id: instanceId },
       data: {
+        podName: newPodName,
         lastHealthCheck: new Date(),
         healthStatus: "Healthy - Updated",
       },
@@ -661,10 +704,95 @@ const getUserInstances = async (userId, options = {}) => {
   });
 };
 
+/**
+ * Refresh pod name for service instance (maintenance function)
+ * @param {string} instanceId - Service instance ID
+ * @returns {Promise<Object>} Refresh result
+ */
+const refreshInstancePodName = async (instanceId) => {
+  try {
+    const instance = await prisma.serviceInstance.findUnique({
+      where: { id: instanceId },
+    });
+
+    if (!instance) {
+      throw new Error("Service instance not found");
+    }
+
+    if (instance.status !== "RUNNING") {
+      throw new Error("Can only refresh pod names for running instances");
+    }
+
+    if (!isK8sAvailable()) {
+      throw new Error("Kubernetes cluster not available");
+    }
+
+    logger.info(`Refreshing pod name for instance: ${instanceId}`);
+
+    // Get current pods for the deployment
+    const pods = await k8sHelper.getPodsForDeployment(
+      instance.deploymentName,
+      instance.namespace
+    );
+
+    let newPodName = instance.podName; // Keep existing if no pods found
+    if (pods && pods.length > 0) {
+      // Sort pods by creation time (newest first) - ignore status
+      const sortedPods = pods.sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+
+      // Always select the newest pod regardless of status
+      const selectedPod = sortedPods[0];
+      newPodName = selectedPod.name;
+
+      logger.info(
+        `Pod refresh selection: Found ${pods.length} pods, ${runningPods.length} running. Selected newest: ${newPodName} (created: ${selectedPod.createdAt})`
+      );
+
+      if (newPodName !== instance.podName) {
+        logger.info(
+          `Refreshed pod name from '${instance.podName}' to '${newPodName}' for instance: ${instanceId}`
+        );
+
+        // Update database with new pod name
+        await prisma.serviceInstance.update({
+          where: { id: instanceId },
+          data: {
+            podName: newPodName,
+            lastHealthCheck: new Date(),
+          },
+        });
+      } else {
+        logger.info(`Pod name unchanged for instance: ${instanceId}`);
+      }
+    } else {
+      logger.warn(
+        `No pods found for deployment: ${instance.deploymentName}. Keeping existing pod name: ${instance.podName}`
+      );
+    }
+
+    return {
+      instanceId,
+      oldPodName: instance.podName,
+      newPodName,
+      updated: newPodName !== instance.podName,
+      message:
+        newPodName !== instance.podName
+          ? "Pod name refreshed successfully"
+          : "Pod name already up to date",
+    };
+  } catch (error) {
+    logger.error("Pod name refresh failed:", error);
+    throw error;
+  }
+};
+
 export default {
   provisionServiceInstance,
   terminateServiceInstance,
   updateServiceInstance,
   getInstanceStatus,
   getUserInstances,
+  refreshInstancePodName,
 };

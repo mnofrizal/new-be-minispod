@@ -244,6 +244,63 @@ GET {{baseUrl}}/admin/k8s/ingresses
 Authorization: Bearer {{jwt_token}}
 
 ### ==============================================
+### POD NAME SYNCHRONIZATION TESTS
+### ==============================================
+
+### Test 1: Verify pod name before subscription upgrade
+GET {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### Test 2: Perform subscription upgrade (triggers pod restart)
+# Note: This should be done via subscription upgrade endpoint
+# PUT {{baseUrl}}/subscriptions/{{subscriptionId}}/upgrade
+
+### Test 3: Verify pod name after subscription upgrade
+GET {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### Test 4: Check Kubernetes pods to verify new pod exists
+GET {{baseUrl}}/admin/k8s/pods
+Authorization: Bearer {{jwt_token}}
+
+### Test 5: Check deployment status after upgrade
+GET {{baseUrl}}/admin/k8s/deployments
+Authorization: Bearer {{jwt_token}}
+
+### Test 6: Manual pod name refresh (maintenance function)
+# Note: This endpoint would need to be added to instance controller
+# POST {{baseUrl}}/instances/{{instanceId}}/refresh-pod-name
+
+### ==============================================
+### POD NAME VERIFICATION WORKFLOW
+### ==============================================
+
+### Step 1: Create instance and note initial pod name
+POST {{baseUrl}}/instances
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+{
+  "subscriptionId": "{{subscriptionId}}"
+}
+
+### Step 2: Wait for provisioning and get initial pod name
+GET {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### Step 3: Upgrade subscription (this triggers pod restart)
+# Use subscription upgrade endpoint which calls updateServiceInstance
+# PUT {{baseUrl}}/subscriptions/{{subscriptionId}}/upgrade
+
+### Step 4: Verify pod name is updated after upgrade
+GET {{baseUrl}}/instances/{{instanceId}}
+Authorization: Bearer {{jwt_token}}
+
+### Step 5: Cross-verify with Kubernetes API
+GET {{baseUrl}}/admin/k8s/pods
+Authorization: Bearer {{jwt_token}}
+
+### ==============================================
 ### NOTES
 ### ==============================================
 
