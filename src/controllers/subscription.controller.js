@@ -538,6 +538,181 @@ function getValidationStatusCode(errorCode) {
   }
 }
 
+/**
+ * Retry provisioning for subscription
+ * POST /api/subscriptions/:subscriptionId/retry-provisioning
+ */
+const retryProvisioning = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { subscriptionId } = req.params;
+
+    const result = await subscriptionService.retryProvisioning(
+      subscriptionId,
+      userId
+    );
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      result,
+      "Provisioning retry initiated successfully"
+    );
+  } catch (error) {
+    logger.error("Retry provisioning error:", error);
+
+    if (error.message.includes("not found")) {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
+    }
+
+    if (error.message.includes("Cannot retry")) {
+      return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
+    }
+
+    if (error.message.includes("already running")) {
+      return sendResponse(res, StatusCodes.CONFLICT, null, error.message);
+    }
+
+    if (error.message.includes("currently being provisioned")) {
+      return sendResponse(res, StatusCodes.CONFLICT, null, error.message);
+    }
+
+    if (error.message.includes("Kubernetes cluster not available")) {
+      return sendResponse(
+        res,
+        StatusCodes.SERVICE_UNAVAILABLE,
+        null,
+        error.message
+      );
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to retry provisioning"
+    );
+  }
+};
+
+/**
+ * Restart subscription service instance
+ * POST /api/subscriptions/:subscriptionId/restart
+ */
+const restartSubscription = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { subscriptionId } = req.params;
+
+    // Get subscription details to verify ownership and get instance
+    const subscription = await subscriptionService.getSubscriptionDetails(
+      subscriptionId,
+      userId
+    );
+
+    if (!subscription) {
+      return sendResponse(
+        res,
+        StatusCodes.NOT_FOUND,
+        null,
+        "Subscription not found"
+      );
+    }
+
+    // Check if subscription has an active service instance
+    if (!subscription.instances || subscription.instances.length === 0) {
+      return sendResponse(
+        res,
+        StatusCodes.NOT_FOUND,
+        null,
+        "No service instance found for this subscription"
+      );
+    }
+
+    // Find the running instance
+    const runningInstance = subscription.instances.find(
+      (inst) => inst.status === "RUNNING"
+    );
+
+    if (!runningInstance) {
+      return sendResponse(
+        res,
+        StatusCodes.BAD_REQUEST,
+        null,
+        "No running service instance found to restart"
+      );
+    }
+
+    // Import provisioning service to restart the instance
+    const provisioningService = (
+      await import("../services/k8s/provisioning.service.js")
+    ).default;
+
+    // Restart the service instance
+    const result = await provisioningService.restartServiceInstance(
+      runningInstance.id
+    );
+
+    // Enhance response with subscription context
+    const enhancedResult = {
+      ...result,
+      subscription: {
+        id: subscription.id,
+        service: subscription.service,
+        plan: subscription.plan,
+        status: subscription.status,
+      },
+    };
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      enhancedResult,
+      "Subscription service restarted successfully"
+    );
+  } catch (error) {
+    logger.error("Restart subscription error:", error);
+
+    if (error.message === "Subscription not found") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
+    }
+
+    if (error.message.includes("Can only restart running")) {
+      return sendResponse(
+        res,
+        StatusCodes.BAD_REQUEST,
+        null,
+        "Can only restart running service instances"
+      );
+    }
+
+    if (error.message.includes("Kubernetes cluster not available")) {
+      return sendResponse(
+        res,
+        StatusCodes.SERVICE_UNAVAILABLE,
+        null,
+        "Service restart temporarily unavailable"
+      );
+    }
+
+    if (error.message.includes("Rolling restart failed")) {
+      return sendResponse(
+        res,
+        StatusCodes.INTERNAL_SERVER_ERROR,
+        null,
+        "Rolling restart failed to complete"
+      );
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to restart subscription service"
+    );
+  }
+};
+
 export default {
   getUserSubscriptions,
   getSubscriptionDetails,
@@ -546,4 +721,6 @@ export default {
   cancelSubscription,
   validateSubscription,
   getSubscriptionMetrics,
+  retryProvisioning,
+  restartSubscription,
 };

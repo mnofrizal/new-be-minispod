@@ -11,7 +11,7 @@ POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "admin@minispod.com",
+  "email": "user1@minispod.com",
   "password": "password123"
 }
 
@@ -454,3 +454,319 @@ Authorization: Bearer {{authToken}}
 # - Handle 503 errors (Kubernetes unavailable)
 # - Cache previous values to show trends
 # - Display resource utilization as percentages (usage/limits * 100)
+
+### ============================================================================
+### RETRY PROVISIONING ENDPOINT (NEW)
+### ============================================================================
+
+### Test 11: Retry Provisioning for Failed Subscription
+POST {{baseUrl}}/subscriptions/cmepx4h1p0007vvjvrfhpft1i/retry-provisioning
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 12: Retry Provisioning - Non-existent Subscription (should fail)
+POST {{baseUrl}}/subscriptions/clnonexistentsubscription/retry-provisioning
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 13: Retry Provisioning - Already Running Service (should fail)
+POST {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/retry-provisioning
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 14: Retry Provisioning - Without Authentication (should fail)
+POST {{baseUrl}}/subscriptions/cmepx4h1p0007vvjvrfhpft1i/retry-provisioning
+Content-Type: application/json
+
+### Test 15: Retry Provisioning - Invalid Subscription ID Format (should fail)
+POST {{baseUrl}}/subscriptions/invalid_id_format/retry-provisioning
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### ============================================================================
+### RETRY PROVISIONING WORKFLOW TEST
+### ============================================================================
+
+### Workflow Test 1: Check Subscription Status Before Retry
+GET {{baseUrl}}/subscriptions/cmepx4h1p0007vvjvrfhpft1i
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 2: Retry Provisioning
+POST {{baseUrl}}/subscriptions/cmepx4h1p0007vvjvrfhpft1i/retry-provisioning
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Workflow Test 3: Check Subscription Status After Retry (should show PENDING/PROVISIONING)
+GET {{baseUrl}}/subscriptions/cmepx4h1p0007vvjvrfhpft1i
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 4: Wait and Check Again (simulate monitoring)
+GET {{baseUrl}}/subscriptions/cmepx4h1p0007vvjvrfhpft1i
+Authorization: Bearer {{authToken}}
+
+### ============================================================================
+### RETRY PROVISIONING NOTES
+### ============================================================================
+
+# Expected Retry Provisioning Response Structure:
+# {
+#   "success": true,
+#   "data": {
+#     "subscription": {
+#       "id": "cmepx4h1p0007vvjvrfhpft1i",
+#       "status": "ACTIVE",
+#       "service": { "name": "N8N Automation", "slug": "n8n-automation" },
+#       "plan": { "name": "Basic", "planType": "BASIC" }
+#     },
+#     "instance": {
+#       "id": "cmeslquw90007vv4azb9pes44",
+#       "name": "n8n-automation-user123",
+#       "status": "PENDING",
+#       "previousStatus": "ERROR"
+#     },
+#     "message": "Provisioning retry initiated successfully",
+#     "estimatedTime": "2-5 minutes",
+#     "nextSteps": [
+#       "Previous failed resources will be cleaned up",
+#       "New Kubernetes resources are being created",
+#       "You will be notified when the service is ready",
+#       "Check instance status for updates"
+#     ]
+#   },
+#   "message": "Provisioning retry initiated successfully",
+#   "timestamp": "2025-08-27T13:37:00.123Z"
+# }
+
+# Retry Provisioning Business Rules:
+# - Only works for subscriptions with ERROR or TERMINATED instances
+# - Cannot retry if service is already RUNNING or PROVISIONING
+# - Requires active subscription status
+# - User can only retry their own subscriptions
+# - Kubernetes cluster must be available
+# - Previous failed resources are automatically cleaned up
+# - New provisioning process starts from scratch
+
+# Frontend Implementation Notes:
+# - Show retry button only for failed instances (ERROR status)
+# - Disable retry button during PROVISIONING status
+# - Poll subscription status after retry to show progress
+# - Display estimated time and next steps to user
+# - Handle all error scenarios gracefully
+
+### ============================================================================
+### RESTART SUBSCRIPTION SERVICE ENDPOINT (NEW)
+### ============================================================================
+
+### Test 1: Restart Subscription Service (Success Case)
+POST {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/restart
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 2: Restart Non-existent Subscription (should fail)
+POST {{baseUrl}}/subscriptions/clnonexistentsubscription/restart
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 3: Restart Subscription Without Authentication (should fail)
+POST {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/restart
+Content-Type: application/json
+
+### Test 4: Restart Subscription with Invalid JWT (should fail)
+POST {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/restart
+Authorization: Bearer invalid_jwt_token
+Content-Type: application/json
+
+### Test 5: Restart Subscription Belonging to Another User (should fail)
+# Note: Use different user's subscription ID
+POST {{baseUrl}}/subscriptions/other-user-subscription-id/restart
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 6: Restart Subscription with No Running Instance (should fail)
+# Note: Use subscription ID that has no running instances
+POST {{baseUrl}}/subscriptions/no-running-instance-subscription/restart
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 7: Restart Subscription with ERROR Status Instance (should fail)
+# Note: Use subscription ID that has ERROR status instance
+POST {{baseUrl}}/subscriptions/error-instance-subscription/restart
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### ============================================================================
+### RESTART SUBSCRIPTION WORKFLOW TESTS
+### ============================================================================
+
+### Workflow Test 1: Check Subscription Status Before Restart
+GET {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 2: Perform Restart via Subscription
+POST {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/restart
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Workflow Test 3: Check Subscription Status After Restart (should show new pod name)
+GET {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 4: Verify Instance Status After Restart
+GET {{baseUrl}}/instances
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 5: Check Subscription Metrics After Restart
+GET {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/metrics
+Authorization: Bearer {{authToken}}
+
+### ============================================================================
+### RESTART VS RETRY COMPARISON (SUBSCRIPTION LEVEL)
+### ============================================================================
+
+### Scenario 1: Restart Running Subscription Service (Rolling Restart)
+# Use case: Service is running but has issues (memory leak, hung processes)
+# Expected: Pod is restarted with minimal downtime, same configuration
+POST {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/restart
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Scenario 2: Retry Provisioning for Failed Subscription (Full Redeploy)
+# Use case: Service deployment failed completely (ERROR status)
+# Expected: Complete cleanup and redeploy from scratch
+POST {{baseUrl}}/subscriptions/cmeso4snn000bvvdx0n4a3wko/retry-provisioning
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### ============================================================================
+### RESTART SUBSCRIPTION RESPONSE STRUCTURE VALIDATION
+### ============================================================================
+
+### Test Expected Restart Response Structure
+POST {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/restart
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+# Expected Response Structure:
+# {
+#   "success": true,
+#   "statusCode": 200,
+#   "data": {
+#     "instance": {
+#       "id": "cmeslquw90007vv4azb9pes44",
+#       "name": "n8n-automation-user123",
+#       "status": "RUNNING",
+#       "service": { "name": "N8N Automation", "slug": "n8n-automation" },
+#       "plan": { "name": "Basic", "planType": "BASIC" }
+#     },
+#     "restart": {
+#       "oldPodName": "n8n-automation-user123-abc123",
+#       "newPodName": "n8n-automation-user123-def456",
+#       "restartTime": "2025-08-27T14:35:00.000Z",
+#       "method": "Rolling Restart"
+#     },
+#     "subscription": {
+#       "id": "cmeslquvy0005vv4auasdgjzh",
+#       "service": { "name": "N8N Automation", "slug": "n8n-automation" },
+#       "plan": { "name": "Basic", "planType": "BASIC" },
+#       "status": "ACTIVE"
+#     },
+#     "message": "Service instance restarted successfully",
+#     "estimatedDowntime": "< 30 seconds",
+#     "nextSteps": [
+#       "New pod is being created with fresh state",
+#       "Old pod will be terminated gracefully",
+#       "Service should be available shortly",
+#       "Check instance status for updates"
+#     ]
+#   },
+#   "message": "Subscription service restarted successfully",
+#   "timestamp": "2025-08-27T14:35:00.123Z"
+# }
+
+### ============================================================================
+### RESTART SUBSCRIPTION EDGE CASES
+### ============================================================================
+
+### Edge Case 1: Restart Subscription During Provisioning (should fail)
+# Note: Use subscription that is currently in PROVISIONING status
+POST {{baseUrl}}/subscriptions/provisioning-subscription-id/restart
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Edge Case 2: Multiple Restart Requests (should handle gracefully)
+# First restart request
+POST {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/restart
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Immediate second restart request (should fail or queue)
+POST {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/restart
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Edge Case 3: Restart Cancelled Subscription (should fail)
+# Note: Use subscription that has been cancelled
+POST {{baseUrl}}/subscriptions/cancelled-subscription-id/restart
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### ============================================================================
+### RESTART SUBSCRIPTION PERFORMANCE TESTS
+### ============================================================================
+
+### Performance Test 1: Measure Restart Time via Subscription
+# Step 1: Record start time and restart
+POST {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/restart
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Performance Test 2: Monitor Restart Progress via Subscription
+# Step 2: Check status immediately after restart
+GET {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh
+Authorization: Bearer {{authToken}}
+
+### Performance Test 3: Verify Service Availability via Metrics
+# Step 3: Check if service is accessible (wait 30 seconds then test)
+GET {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/metrics
+Authorization: Bearer {{authToken}}
+
+### ============================================================================
+### RESTART SUBSCRIPTION FUNCTIONALITY NOTES
+### ============================================================================
+
+# Restart Subscription vs Restart Instance:
+#
+# RESTART SUBSCRIPTION:
+# - User-friendly endpoint: POST /api/subscriptions/:id/restart
+# - Automatically finds running instance for the subscription
+# - Validates subscription ownership and status
+# - Returns subscription context in response
+# - Better UX for users who think in terms of subscriptions
+#
+# RESTART INSTANCE:
+# - Technical endpoint: POST /api/instances/:id/restart
+# - Requires user to know specific instance ID
+# - Direct instance manipulation
+# - More granular control for advanced users
+#
+# Both endpoints:
+# - Use the same underlying restart logic
+# - Perform Kubernetes rolling restart
+# - Update pod names and health status
+# - Provide same restart functionality
+#
+# Restart Subscription Business Rules:
+# - Only works for ACTIVE subscriptions
+# - Must have at least one RUNNING instance
+# - User can only restart their own subscriptions
+# - Kubernetes cluster must be available
+# - Rolling restart preserves service availability
+# - Response includes both instance and subscription context
+#
+# Frontend Implementation Notes:
+# - Show restart button on subscription dashboard
+# - Use subscription-based endpoint for better UX
+# - Display subscription context in restart confirmation
+# - Poll subscription status after restart
+# - Show both subscription and instance information
+# - Handle all error scenarios with clear messages

@@ -651,6 +651,49 @@ const sanitizeK8sName = (name) => {
     .substring(0, 63);
 };
 
+/**
+ * Patch deployment annotations (for rolling restart)
+ * @param {string} name - Deployment name
+ * @param {string} namespace - Namespace
+ * @param {Object} annotations - Annotations to add/update
+ * @returns {Promise<Object>} Patch result
+ */
+const patchDeploymentAnnotations = async (name, namespace, annotations) => {
+  const appsV1Api = getAppsV1ApiClient();
+
+  try {
+    // Create patch object for annotations
+    const patch = {
+      spec: {
+        template: {
+          metadata: {
+            annotations: annotations,
+          },
+        },
+      },
+    };
+
+    logger.info(`Patching deployment ${name} with annotations:`, annotations);
+
+    const response = await appsV1Api.patchNamespacedDeployment({
+      name: name,
+      namespace: namespace,
+      body: patch,
+      headers: {
+        "Content-Type": "application/strategic-merge-patch+json",
+      },
+    });
+
+    logger.info(
+      `Successfully patched deployment: ${name} in namespace: ${namespace}`
+    );
+    return { patched: true, resource: response.body };
+  } catch (error) {
+    logger.error(`Failed to patch deployment ${name}:`, error);
+    throw error;
+  }
+};
+
 export default {
   applyManifest,
   deleteResource,
@@ -659,4 +702,5 @@ export default {
   generateSubdomain,
   isValidK8sName,
   sanitizeK8sName,
+  patchDeploymentAnnotations,
 };

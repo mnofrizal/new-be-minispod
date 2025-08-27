@@ -747,7 +747,7 @@ const refreshInstancePodName = async (instanceId) => {
       newPodName = selectedPod.name;
 
       logger.info(
-        `Pod refresh selection: Found ${pods.length} pods, ${runningPods.length} running. Selected newest: ${newPodName} (created: ${selectedPod.createdAt})`
+        `Pod refresh selection: Found ${pods.length} pods. Selected newest: ${newPodName} (created: ${selectedPod.createdAt})`
       );
 
       if (newPodName !== instance.podName) {
@@ -788,6 +788,235 @@ const refreshInstancePodName = async (instanceId) => {
   }
 };
 
+/**
+ * Restart service instance using Kubernetes rolling restart
+ * @param {string} instanceId - Service instance ID
+ * @returns {Promise<Object>} Restart result
+ */
+const restartServiceInstance = async (instanceId) => {
+  try {
+    // Get instance details
+    const instance = await prisma.serviceInstance.findUnique({
+      where: { id: instanceId },
+      include: {
+        subscription: {
+          include: {
+            service: { select: { name: true, slug: true } },
+            plan: { select: { name: true, planType: true } },
+            user: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    if (!instance) {
+      throw new Error("Service instance not found");
+    }
+
+    if (instance.status !== "RUNNING") {
+      throw new Error("Can only restart running instances");
+    }
+
+    if (!isK8sAvailable()) {
+      throw new Error("Kubernetes cluster not available");
+    }
+
+    logger.info(`Restarting service instance: ${instanceId}`);
+
+    // Update status to indicate restart in progress
+    await prisma.serviceInstance.update({
+      where: { id: instanceId },
+      data: {
+        healthStatus: "Restarting...",
+        lastHealthCheck: new Date(),
+      },
+    });
+
+    // Perform Kubernetes rolling restart
+    const restartResult = await performKubernetesRollingRestart(instance);
+
+    // Update instance with new pod information
+    await prisma.serviceInstance.update({
+      where: { id: instanceId },
+      data: {
+        podName: restartResult.newPodName,
+        healthStatus: "Healthy - Restarted",
+        lastStarted: new Date(),
+        lastHealthCheck: new Date(),
+      },
+    });
+
+    logger.info(`Successfully restarted service instance: ${instanceId}`);
+
+    return {
+      instance: {
+        id: instance.id,
+        name: instance.name,
+        status: instance.status,
+        service: instance.subscription.service,
+        plan: instance.subscription.plan,
+      },
+      restart: {
+        oldPodName: restartResult.oldPodName,
+        newPodName: restartResult.newPodName,
+        restartTime: new Date().toISOString(),
+        method: "Rolling Restart",
+      },
+      message: "Service instance restarted successfully",
+      estimatedDowntime: restartResult.downtime,
+      nextSteps: [
+        "New pod is being created with fresh state",
+        "Old pod will be terminated gracefully",
+        "Service should be available shortly",
+        "Check instance status for updates",
+      ],
+    };
+  } catch (error) {
+    logger.error("Service instance restart failed:", error);
+
+    // Update instance status to indicate restart failed
+    try {
+      await prisma.serviceInstance.update({
+        where: { id: instanceId },
+        data: {
+          healthStatus: `Restart failed: ${error.message}`,
+          lastHealthCheck: new Date(),
+        },
+      });
+    } catch (updateError) {
+      logger.error(
+        "Failed to update instance status after restart failure:",
+        updateError
+      );
+    }
+
+    throw error;
+  }
+};
+
+/**
+ * Perform Kubernetes rolling restart for deployment
+ * @param {Object} instance - Service instance
+ * @returns {Promise<Object>} Restart result
+ */
+const performKubernetesRollingRestart = async (instance) => {
+  try {
+    logger.info(
+      `Performing rolling restart for deployment: ${instance.deploymentName}`
+    );
+
+    // Get current pod name before restart
+    const currentPods = await k8sHelper.getPodsForDeployment(
+      instance.deploymentName,
+      instance.namespace
+    );
+
+    let oldPodName = instance.podName;
+    if (currentPods && currentPods.length > 0) {
+      const runningPod =
+        currentPods.find((pod) => pod.status === "Running") || currentPods[0];
+      oldPodName = runningPod.name;
+    }
+
+    // Alternative approach: Update deployment template to trigger rolling restart
+    logger.info(
+      `Triggering rolling restart by updating deployment: ${instance.deploymentName}`
+    );
+
+    // Get current deployment to preserve all settings
+    const { getAppsV1ApiClient } = await import("../../config/kubernetes.js");
+    const appsV1Api = getAppsV1ApiClient();
+
+    const deploymentResponse = await appsV1Api.readNamespacedDeployment({
+      name: instance.deploymentName,
+      namespace: instance.namespace,
+    });
+
+    const deployment = deploymentResponse.body || deploymentResponse;
+
+    // Add restart annotation to pod template to trigger rolling update
+    const currentTime = new Date().toISOString();
+    const updatedDeployment = {
+      ...deployment,
+      spec: {
+        ...deployment.spec,
+        template: {
+          ...deployment.spec.template,
+          metadata: {
+            ...deployment.spec.template.metadata,
+            annotations: {
+              ...deployment.spec.template.metadata.annotations,
+              "kubectl.kubernetes.io/restartedAt": currentTime,
+            },
+          },
+        },
+      },
+    };
+
+    logger.info(`Updating deployment with restart annotation: ${currentTime}`);
+    await appsV1Api.replaceNamespacedDeployment({
+      name: instance.deploymentName,
+      namespace: instance.namespace,
+      body: updatedDeployment,
+    });
+
+    // Wait for rolling restart to complete
+    logger.info(
+      `Waiting for rolling restart to complete: ${instance.deploymentName}`
+    );
+    const readyResult = await k8sHelper.waitForDeploymentReady(
+      instance.deploymentName,
+      instance.namespace,
+      120000 // 2 minutes timeout for restart
+    );
+
+    if (!readyResult.ready) {
+      throw new Error("Rolling restart failed to complete within timeout");
+    }
+
+    // Get new pod name after restart
+    await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 second delay for new pod
+
+    const newPods = await k8sHelper.getPodsForDeployment(
+      instance.deploymentName,
+      instance.namespace
+    );
+
+    let newPodName = oldPodName; // Fallback to old name if no pods found
+    if (newPods && newPods.length > 0) {
+      // Sort pods by creation time (newest first)
+      const sortedPods = newPods.sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+
+      // Select the newest pod (should be the restarted one)
+      const newestPod = sortedPods[0];
+      newPodName = newestPod.name;
+
+      logger.info(
+        `Rolling restart completed. Old pod: ${oldPodName}, New pod: ${newPodName}`
+      );
+    } else {
+      logger.warn(
+        `No pods found after restart for deployment: ${instance.deploymentName}`
+      );
+    }
+
+    return {
+      oldPodName,
+      newPodName,
+      downtime: "< 30 seconds", // Typical rolling restart downtime
+      success: true,
+    };
+  } catch (error) {
+    logger.error(
+      `Rolling restart failed for deployment ${instance.deploymentName}:`,
+      error
+    );
+    throw error;
+  }
+};
+
 export default {
   provisionServiceInstance,
   terminateServiceInstance,
@@ -795,4 +1024,5 @@ export default {
   getInstanceStatus,
   getUserInstances,
   refreshInstancePodName,
+  restartServiceInstance,
 };

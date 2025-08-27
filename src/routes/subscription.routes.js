@@ -61,6 +61,20 @@ router.put(
   subscriptionController.upgradeSubscription
 );
 
+// Retry provisioning for subscription
+router.post(
+  "/:subscriptionId/retry-provisioning",
+  validate({ params: subscriptionIdValidation }),
+  subscriptionController.retryProvisioning
+);
+
+// Restart subscription service instance
+router.post(
+  "/:subscriptionId/restart",
+  validate({ params: subscriptionIdValidation }),
+  subscriptionController.restartSubscription
+);
+
 // Cancel subscription
 router.delete(
   "/:subscriptionId",

@@ -2,6 +2,7 @@ import prisma from "../utils/prisma.js";
 import creditService from "./credit.service.js";
 import quotaService from "./quota.service.js";
 import provisioningService from "./k8s/provisioning.service.js";
+import { isK8sAvailable } from "../config/kubernetes.js";
 import logger from "../utils/logger.js";
 
 /**
@@ -888,6 +889,164 @@ const validateSubscription = async (userId, planId) => {
   };
 };
 
+/**
+ * Retry provisioning for a subscription with failed instances
+ * @param {string} subscriptionId - Subscription ID
+ * @param {string} userId - User ID (for authorization)
+ * @returns {Promise<Object>} Retry result
+ */
+const retryProvisioning = async (subscriptionId, userId) => {
+  return await prisma.$transaction(async (tx) => {
+    // Get subscription with instances
+    const subscription = await tx.subscription.findFirst({
+      where: {
+        id: subscriptionId,
+        userId, // Ensure user can only retry their own subscriptions
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        service: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            dockerImage: true,
+            defaultPort: true,
+            envTemplate: true,
+          },
+        },
+        plan: {
+          select: {
+            id: true,
+            name: true,
+            planType: true,
+            cpuMilli: true,
+            memoryMb: true,
+            storageGb: true,
+            features: true,
+          },
+        },
+        instances: {
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+      },
+    });
+
+    if (!subscription) {
+      throw new Error("Subscription not found");
+    }
+
+    if (subscription.status !== "ACTIVE") {
+      throw new Error("Cannot retry provisioning for inactive subscriptions");
+    }
+
+    // Check if there are any instances
+    if (!subscription.instances || subscription.instances.length === 0) {
+      throw new Error("No instances found for this subscription");
+    }
+
+    // Get the latest instance
+    const latestInstance = subscription.instances[0];
+
+    // Check if retry is allowed based on instance status
+    if (latestInstance.status === "RUNNING") {
+      throw new Error("Service is already running - no retry needed");
+    }
+
+    if (latestInstance.status === "PROVISIONING") {
+      throw new Error(
+        "Service is currently being provisioned - please wait. Check back in a few minutes."
+      );
+    }
+
+    if (!["ERROR", "TERMINATED"].includes(latestInstance.status)) {
+      throw new Error(
+        `Cannot retry provisioning for instance with status: ${latestInstance.status}`
+      );
+    }
+
+    // Check if Kubernetes is available
+    if (!isK8sAvailable()) {
+      throw new Error("Kubernetes cluster not available");
+    }
+
+    logger.info(
+      `Retrying provisioning for subscription ${subscriptionId}, instance ${latestInstance.id}`
+    );
+
+    // Update instance status to PENDING to indicate retry is starting
+    await tx.serviceInstance.update({
+      where: { id: latestInstance.id },
+      data: {
+        status: "PENDING",
+        healthStatus: "Retry provisioning initiated",
+        lastHealthCheck: new Date(),
+      },
+    });
+
+    // Start asynchronous provisioning process
+    setImmediate(() => {
+      provisioningService
+        .provisionServiceInstance(subscription.id)
+        .then((result) => {
+          logger.info(
+            `Retry provisioning started for subscription ${subscription.id}:`,
+            result
+          );
+        })
+        .catch((error) => {
+          logger.error(
+            `Retry provisioning failed for subscription ${subscription.id}:`,
+            error
+          );
+          // Update instance status to ERROR
+          prisma.serviceInstance
+            .update({
+              where: { id: latestInstance.id },
+              data: {
+                status: "ERROR",
+                healthStatus: `Retry provisioning failed: ${error.message}`,
+              },
+            })
+            .catch((updateError) => {
+              logger.error(`Failed to update instance status:`, updateError);
+            });
+        });
+    });
+
+    return {
+      subscription: {
+        id: subscription.id,
+        status: subscription.status,
+        service: subscription.service,
+        plan: subscription.plan,
+      },
+      instance: {
+        id: latestInstance.id,
+        name: latestInstance.name,
+        status: "PENDING",
+        previousStatus: latestInstance.status,
+      },
+      message: "Provisioning retry initiated successfully",
+      estimatedTime: "2-5 minutes",
+      nextSteps: [
+        "Previous failed resources will be cleaned up",
+        "New Kubernetes resources are being created",
+        "You will be notified when the service is ready",
+        "Check instance status for updates",
+      ],
+    };
+  });
+};
+
 export default {
   createSubscription,
   upgradeSubscription,
@@ -895,4 +1054,5 @@ export default {
   getUserSubscriptions,
   getSubscriptionDetails,
   validateSubscription,
+  retryProvisioning,
 };

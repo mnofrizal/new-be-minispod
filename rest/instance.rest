@@ -62,7 +62,7 @@ GET {{baseUrl}}/instances/{{instanceId}}/logs?lines=50&follow=false
 Authorization: Bearer {{jwt_token}}
 
 ### 9. Restart Service Instance
-POST {{baseUrl}}/instances/cmesh063j0005vv2d9du7epdv/restart
+POST {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44/restart
 Authorization: Bearer {{jwt_token}}
 
 ### 10. Terminate Service Instance
@@ -330,3 +330,209 @@ Authorization: Bearer {{jwt_token}}
 # - Kubernetes Cluster: Resource provisioning and management
 # - Quota Service: Resource allocation and limits
 # - Monitoring: Health checks and metrics collection
+
+### ==============================================
+### RESTART INSTANCE FUNCTIONALITY TESTS
+### ==============================================
+
+### Test 1: Restart Running Instance (Success Case)
+POST {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44/restart
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+### Test 2: Restart Non-existent Instance (should fail)
+POST {{baseUrl}}/instances/non-existent-instance-id/restart
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+### Test 3: Restart Instance Without Authentication (should fail)
+POST {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44/restart
+Content-Type: application/json
+
+### Test 4: Restart Instance with Invalid JWT (should fail)
+POST {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44/restart
+Authorization: Bearer invalid_jwt_token
+Content-Type: application/json
+
+### Test 5: Restart Instance Belonging to Another User (should fail)
+# Note: Use different user's instance ID
+POST {{baseUrl}}/instances/other-user-instance-id/restart
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+### Test 6: Restart Instance with ERROR Status (should fail)
+# Note: Use instance ID that has ERROR status
+POST {{baseUrl}}/instances/error-status-instance-id/restart
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+### Test 7: Restart Instance with TERMINATED Status (should fail)
+# Note: Use instance ID that has TERMINATED status
+POST {{baseUrl}}/instances/terminated-instance-id/restart
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+### ==============================================
+### RESTART WORKFLOW TESTS
+### ==============================================
+
+### Workflow Test 1: Check Instance Status Before Restart
+GET {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44
+Authorization: Bearer {{jwt_token}}
+
+### Workflow Test 2: Perform Restart
+POST {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44/restart
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+### Workflow Test 3: Check Instance Status After Restart (should show new pod name)
+GET {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44
+Authorization: Bearer {{jwt_token}}
+
+### Workflow Test 4: Verify Kubernetes Pods (should show new pod)
+GET {{baseUrl}}/admin/k8s/pods
+Authorization: Bearer {{jwt_token}}
+
+### Workflow Test 5: Check Instance Logs After Restart
+GET {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44/logs?lines=50
+Authorization: Bearer {{jwt_token}}
+
+### ==============================================
+### RESTART VS RETRY PROVISIONING COMPARISON
+### ==============================================
+
+### Scenario 1: Restart Running Instance (Rolling Restart)
+# Use case: Service is running but has issues (memory leak, hung processes)
+# Expected: Pod is restarted with minimal downtime, same configuration
+POST {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44/restart
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+### Scenario 2: Retry Provisioning for Failed Instance (Full Redeploy)
+# Use case: Service deployment failed completely (ERROR status)
+# Expected: Complete cleanup and redeploy from scratch
+POST {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/retry-provisioning
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+### ==============================================
+### RESTART RESPONSE STRUCTURE VALIDATION
+### ==============================================
+
+### Test Expected Restart Response Structure
+POST {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44/restart
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+# Expected Response Structure:
+# {
+#   "success": true,
+#   "statusCode": 200,
+#   "data": {
+#     "instance": {
+#       "id": "cmeslquw90007vv4azb9pes44",
+#       "name": "n8n-automation-user123",
+#       "status": "RUNNING",
+#       "service": { "name": "N8N Automation", "slug": "n8n-automation" },
+#       "plan": { "name": "Basic", "planType": "BASIC" }
+#     },
+#     "restart": {
+#       "oldPodName": "n8n-automation-user123-abc123",
+#       "newPodName": "n8n-automation-user123-def456",
+#       "restartTime": "2025-08-27T14:35:00.000Z",
+#       "method": "Rolling Restart"
+#     },
+#     "message": "Service instance restarted successfully",
+#     "estimatedDowntime": "< 30 seconds",
+#     "nextSteps": [
+#       "New pod is being created with fresh state",
+#       "Old pod will be terminated gracefully",
+#       "Service should be available shortly",
+#       "Check instance status for updates"
+#     ]
+#   },
+#   "message": "Service instance restart initiated successfully",
+#   "timestamp": "2025-08-27T14:35:00.123Z"
+# }
+
+### ==============================================
+### RESTART PERFORMANCE TESTS
+### ==============================================
+
+### Performance Test 1: Measure Restart Time
+# Step 1: Record start time and restart
+POST {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44/restart
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+### Performance Test 2: Monitor Restart Progress
+# Step 2: Check status immediately after restart
+GET {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44
+Authorization: Bearer {{jwt_token}}
+
+### Performance Test 3: Verify Service Availability
+# Step 3: Check if service is accessible (wait 30 seconds then test)
+GET {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44
+Authorization: Bearer {{jwt_token}}
+
+### ==============================================
+### RESTART EDGE CASES
+### ==============================================
+
+### Edge Case 1: Restart During Provisioning (should fail)
+# Note: Use instance that is currently in PROVISIONING status
+POST {{baseUrl}}/instances/provisioning-instance-id/restart
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+### Edge Case 2: Multiple Restart Requests (should handle gracefully)
+# First restart request
+POST {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44/restart
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+### Immediate second restart request (should fail or queue)
+POST {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44/restart
+Authorization: Bearer {{jwt_token}}
+Content-Type: application/json
+
+### Edge Case 3: Restart When Kubernetes Unavailable (should fail gracefully)
+# Note: This would require temporarily disabling K8s connection
+# POST {{baseUrl}}/instances/cmeslquw90007vv4azb9pes44/restart
+
+### ==============================================
+### RESTART FUNCTIONALITY NOTES
+### ==============================================
+
+# Restart vs Retry Provisioning:
+#
+# RESTART INSTANCE:
+# - For RUNNING instances that have issues
+# - Kubernetes rolling restart (minimal downtime)
+# - Same configuration, fresh pod
+# - Downtime: < 30 seconds
+# - Use case: Memory leaks, hung processes, performance issues
+#
+# RETRY PROVISIONING:
+# - For ERROR/TERMINATED instances
+# - Complete cleanup and redeploy
+# - New configuration from subscription
+# - Downtime: 2-5 minutes
+# - Use case: Deployment failures, configuration errors
+#
+# Restart Business Rules:
+# - Only works for RUNNING instances
+# - User can only restart their own instances
+# - Kubernetes cluster must be available
+# - Rolling restart preserves service availability
+# - New pod gets fresh state but same configuration
+# - Pod name changes after restart
+# - Health status updated to "Healthy - Restarted"
+#
+# Frontend Implementation Notes:
+# - Show restart button only for RUNNING instances
+# - Disable restart button during restart process
+# - Poll instance status after restart to show progress
+# - Display estimated downtime and next steps to user
+# - Handle all error scenarios gracefully
+# - Show pod name changes for debugging

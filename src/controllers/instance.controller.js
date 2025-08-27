@@ -383,17 +383,14 @@ const restartInstance = async (req, res) => {
       );
     }
 
-    // For now, return a placeholder response
-    // In a full implementation, this would restart the Kubernetes deployment
+    // Call the restart service
+    const result = await provisioningService.restartServiceInstance(id);
+
     sendResponse(
       res,
       StatusCodes.OK,
-      {
-        instanceId: id,
-        message: "Instance restart initiated",
-        estimatedTime: "1-2 minutes",
-      },
-      "Instance restart feature is under development"
+      result,
+      "Service instance restart initiated successfully"
     );
   } catch (error) {
     logger.error("Restart instance error:", error);
@@ -404,6 +401,33 @@ const restartInstance = async (req, res) => {
         StatusCodes.NOT_FOUND,
         null,
         "Service instance not found"
+      );
+    }
+
+    if (error.message.includes("Can only restart running")) {
+      return sendResponse(
+        res,
+        StatusCodes.BAD_REQUEST,
+        null,
+        "Can only restart running service instances"
+      );
+    }
+
+    if (error.message.includes("Kubernetes cluster not available")) {
+      return sendResponse(
+        res,
+        StatusCodes.SERVICE_UNAVAILABLE,
+        null,
+        "Service restart temporarily unavailable"
+      );
+    }
+
+    if (error.message.includes("Rolling restart failed")) {
+      return sendResponse(
+        res,
+        StatusCodes.INTERNAL_SERVER_ERROR,
+        null,
+        "Rolling restart failed to complete"
       );
     }
 
