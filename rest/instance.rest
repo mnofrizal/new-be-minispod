@@ -536,3 +536,136 @@ Content-Type: application/json
 # - Display estimated downtime and next steps to user
 # - Handle all error scenarios gracefully
 # - Show pod name changes for debugging
+
+### ============================================================================
+### STOP INSTANCE FUNCTIONALITY (NEW)
+### ============================================================================
+
+### Test 1: Stop Running Instance (Success Case)
+PUT {{baseUrl}}/instances/cmeu4cgod0009vvborivibrmy/stop
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 2: Stop Non-existent Instance (should fail)
+PUT {{baseUrl}}/instances/clnonexistentinstance/stop
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 3: Stop Instance Without Authentication (should fail)
+PUT {{baseUrl}}/instances/cmeu4cgod0009vvborivibrmy/stop
+Content-Type: application/json
+
+### Test 4: Stop Instance with Invalid JWT (should fail)
+PUT {{baseUrl}}/instances/cmeu4cgod0009vvborivibrmy/stop
+Authorization: Bearer invalid_jwt_token
+Content-Type: application/json
+
+### Test 5: Stop Already Stopped Instance (should fail)
+# Note: Use instance ID that is already stopped
+PUT {{baseUrl}}/instances/already-stopped-instance/stop
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### ============================================================================
+### START INSTANCE FUNCTIONALITY (NEW)
+### ============================================================================
+
+### Test 6: Start Stopped Instance (Success Case)
+PUT {{baseUrl}}/instances/cmeu4cgod0009vvborivibrmy/start
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 7: Start Non-existent Instance (should fail)
+PUT {{baseUrl}}/instances/clnonexistentinstance/start
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 8: Start Instance Without Authentication (should fail)
+PUT {{baseUrl}}/instances/cmeu4cgod0009vvborivibrmy/start
+Content-Type: application/json
+
+### Test 9: Start Instance with Invalid JWT (should fail)
+PUT {{baseUrl}}/instances/cmeu4cgod0009vvborivibrmy/start
+Authorization: Bearer invalid_jwt_token
+Content-Type: application/json
+
+### Test 10: Start Already Running Instance (should fail)
+# Note: Use instance ID that is already running
+PUT {{baseUrl}}/instances/already-running-instance/start
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### ============================================================================
+### STOP/START WORKFLOW TESTS
+### ============================================================================
+
+### Workflow Test 1: Check Instance Status Before Stop
+GET {{baseUrl}}/instances/cmeu4cgod0009vvborivibrmy
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 2: Stop Running Instance
+PUT {{baseUrl}}/instances/cmeu4cgod0009vvborivibrmy/stop
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Workflow Test 3: Check Instance Status After Stop (should show STOPPED)
+GET {{baseUrl}}/instances/cmeu4cgod0009vvborivibrmy
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 4: Start Stopped Instance
+PUT {{baseUrl}}/instances/cmeu4cgod0009vvborivibrmy/start
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Workflow Test 5: Check Instance Status After Start (should show RUNNING)
+GET {{baseUrl}}/instances/cmeu4cgod0009vvborivibrmy
+Authorization: Bearer {{authToken}}
+
+### ============================================================================
+### STOP/START FUNCTIONALITY NOTES
+### ============================================================================
+
+# Stop/Start vs Other Operations:
+#
+# STOP INSTANCE:
+# - Temporary operation: scales deployment to 0 replicas
+# - Preserves all configuration and persistent data
+# - Status changes: RUNNING → STOPPING → STOPPED
+# - Resources freed up while stopped
+# - Can be reversed with START operation
+#
+# START INSTANCE:
+# - Resume operation: scales deployment to 1 replica
+# - Restores service with preserved configuration
+# - Status changes: STOPPED → STARTING → RUNNING
+# - New pod created with same configuration
+# - All data and settings restored
+#
+# RESTART INSTANCE:
+# - Rolling restart: replaces running pod with new one
+# - Minimal downtime, service stays available
+# - Status changes: RUNNING → RESTARTING → RUNNING
+# - Pod name changes, configuration preserved
+#
+# TERMINATE INSTANCE:
+# - Permanent deletion: removes all Kubernetes resources
+# - Status changes to TERMINATED
+# - Data may be lost depending on storage
+# - Cannot be reversed
+#
+# Stop/Start Business Rules:
+# - STOP only works for RUNNING instances
+# - START only works for STOPPED instances
+# - User can only control their own instances
+# - Kubernetes cluster must be available
+# - Data and configuration are preserved during stop/start cycle
+# - Pod names may change after start (new pod created)
+#
+# Frontend Implementation Notes:
+# - Show STOP button only for running instances
+# - Show START button only for stopped instances
+# - Disable buttons during STOPPING/STARTING status
+# - Poll instance status to show progress
+# - Display clear status indicators (STOPPED vs RUNNING)
+# - Handle all error scenarios with clear messages
+# - Show estimated time for operations

@@ -75,6 +75,20 @@ router.post(
   subscriptionController.restartSubscription
 );
 
+// Stop subscription service temporarily
+router.put(
+  "/:subscriptionId/stop",
+  validate({ params: subscriptionIdValidation }),
+  subscriptionController.stopSubscription
+);
+
+// Start subscription service from stopped state
+router.put(
+  "/:subscriptionId/start",
+  validate({ params: subscriptionIdValidation }),
+  subscriptionController.startSubscription
+);
+
 // Cancel subscription
 router.delete(
   "/:subscriptionId",

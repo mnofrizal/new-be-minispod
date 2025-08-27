@@ -823,22 +823,26 @@ const restartServiceInstance = async (instanceId) => {
 
     logger.info(`Restarting service instance: ${instanceId}`);
 
-    // Update status to indicate restart in progress
+    // Update status to RESTARTING to indicate restart in progress
     await prisma.serviceInstance.update({
       where: { id: instanceId },
       data: {
+        status: "RESTARTING",
         healthStatus: "Restarting...",
         lastHealthCheck: new Date(),
       },
     });
 
+    logger.info(`Instance status updated to RESTARTING: ${instanceId}`);
+
     // Perform Kubernetes rolling restart
     const restartResult = await performKubernetesRollingRestart(instance);
 
-    // Update instance with new pod information
+    // Update instance with new pod information and status back to RUNNING
     await prisma.serviceInstance.update({
       where: { id: instanceId },
       data: {
+        status: "RUNNING",
         podName: restartResult.newPodName,
         healthStatus: "Healthy - Restarted",
         lastStarted: new Date(),
@@ -846,6 +850,7 @@ const restartServiceInstance = async (instanceId) => {
       },
     });
 
+    logger.info(`Instance status updated back to RUNNING: ${instanceId}`);
     logger.info(`Successfully restarted service instance: ${instanceId}`);
 
     return {
@@ -974,33 +979,65 @@ const performKubernetesRollingRestart = async (instance) => {
       throw new Error("Rolling restart failed to complete within timeout");
     }
 
-    // Get new pod name after restart
-    await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 second delay for new pod
-
-    const newPods = await k8sHelper.getPodsForDeployment(
-      instance.deploymentName,
-      instance.namespace
+    // Wait for new pod to be ready after restart (similar to upgrade logic)
+    logger.info(
+      `Waiting for new pod to be ready after restart: ${instance.deploymentName}`
     );
 
     let newPodName = oldPodName; // Fallback to old name if no pods found
-    if (newPods && newPods.length > 0) {
-      // Sort pods by creation time (newest first)
-      const sortedPods = newPods.sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    let attempts = 0;
+    const maxAttempts = 30; // 30 attempts with 2 second intervals = 1 minute max wait
+
+    while (attempts < maxAttempts) {
+      attempts++;
+      await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 second delay
+
+      const newPods = await k8sHelper.getPodsForDeployment(
+        instance.deploymentName,
+        instance.namespace
       );
 
-      // Select the newest pod (should be the restarted one)
-      const newestPod = sortedPods[0];
-      newPodName = newestPod.name;
+      if (newPods && newPods.length > 0) {
+        // Sort pods by creation time (newest first) - ignore status like upgrade logic
+        const sortedPods = newPods.sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
 
-      logger.info(
-        `Rolling restart completed. Old pod: ${oldPodName}, New pod: ${newPodName}`
-      );
-    } else {
+        // Always select the newest pod regardless of status (same as upgrade)
+        const selectedPod = sortedPods[0];
+
+        // Check if we have a new pod (different from old one) and it's running
+        if (
+          selectedPod.name !== oldPodName &&
+          selectedPod.status === "Running"
+        ) {
+          newPodName = selectedPod.name;
+          logger.info(
+            `New pod is ready! Old pod: ${oldPodName}, New pod: ${newPodName} (status: ${selectedPod.status})`
+          );
+          break;
+        } else if (selectedPod.name !== oldPodName) {
+          // New pod exists but not ready yet
+          logger.info(
+            `Waiting for new pod to be ready... Current pod: ${selectedPod.name} (status: ${selectedPod.status}) - Attempt ${attempts}/${maxAttempts}`
+          );
+        }
+      } else {
+        logger.warn(
+          `No pods found for deployment after restart: ${instance.deploymentName} - Attempt ${attempts}/${maxAttempts}`
+        );
+      }
+    }
+
+    if (newPodName === oldPodName) {
       logger.warn(
-        `No pods found after restart for deployment: ${instance.deploymentName}`
+        `New pod not ready within timeout for deployment: ${instance.deploymentName}. Using old pod name: ${oldPodName}`
       );
     }
+
+    logger.info(
+      `Rolling restart completed. Old pod: ${oldPodName}, New pod: ${newPodName}`
+    );
 
     return {
       oldPodName,
@@ -1017,6 +1054,346 @@ const performKubernetesRollingRestart = async (instance) => {
   }
 };
 
+/**
+ * Stop service instance temporarily (scale down to 0 replicas)
+ * @param {string} instanceId - Service instance ID
+ * @returns {Promise<Object>} Stop result
+ */
+const stopServiceInstance = async (instanceId) => {
+  try {
+    // Get instance details
+    const instance = await prisma.serviceInstance.findUnique({
+      where: { id: instanceId },
+      include: {
+        subscription: {
+          include: {
+            service: { select: { name: true, slug: true } },
+            plan: { select: { name: true, planType: true } },
+            user: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    if (!instance) {
+      throw new Error("Service instance not found");
+    }
+
+    if (instance.status !== "RUNNING") {
+      throw new Error("Can only stop running instances");
+    }
+
+    if (!isK8sAvailable()) {
+      throw new Error("Kubernetes cluster not available");
+    }
+
+    logger.info(`Stopping service instance: ${instanceId}`);
+
+    // Update status to indicate stopping in progress
+    await prisma.serviceInstance.update({
+      where: { id: instanceId },
+      data: {
+        status: "STOPPING",
+        healthStatus: "Stopping...",
+        lastHealthCheck: new Date(),
+      },
+    });
+
+    logger.info(`Instance status updated to STOPPING: ${instanceId}`);
+
+    // Scale deployment to 0 replicas
+    const { getAppsV1ApiClient } = await import("../../config/kubernetes.js");
+    const appsV1Api = getAppsV1ApiClient();
+
+    const deploymentResponse = await appsV1Api.readNamespacedDeployment({
+      name: instance.deploymentName,
+      namespace: instance.namespace,
+    });
+
+    const deployment = deploymentResponse.body || deploymentResponse;
+
+    // Update deployment to 0 replicas
+    const updatedDeployment = {
+      ...deployment,
+      spec: {
+        ...deployment.spec,
+        replicas: 0,
+      },
+    };
+
+    logger.info(`Scaling deployment to 0 replicas: ${instance.deploymentName}`);
+    await appsV1Api.replaceNamespacedDeployment({
+      name: instance.deploymentName,
+      namespace: instance.namespace,
+      body: updatedDeployment,
+    });
+
+    // Wait for pods to be terminated
+    logger.info(
+      `Waiting for pods to be terminated: ${instance.deploymentName}`
+    );
+    let attempts = 0;
+    const maxAttempts = 30; // 30 attempts with 2 second intervals = 1 minute max wait
+
+    while (attempts < maxAttempts) {
+      attempts++;
+      await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 second delay
+
+      const pods = await k8sHelper.getPodsForDeployment(
+        instance.deploymentName,
+        instance.namespace
+      );
+
+      if (!pods || pods.length === 0) {
+        logger.info(
+          `All pods terminated for deployment: ${instance.deploymentName}`
+        );
+        break;
+      }
+
+      logger.info(
+        `Waiting for pods to terminate... Found ${pods.length} pods - Attempt ${attempts}/${maxAttempts}`
+      );
+    }
+
+    // Update instance status to STOPPED
+    await prisma.serviceInstance.update({
+      where: { id: instanceId },
+      data: {
+        status: "STOPPED",
+        healthStatus: "Stopped",
+        lastStopped: new Date(),
+        lastHealthCheck: new Date(),
+      },
+    });
+
+    logger.info(`Instance status updated to STOPPED: ${instanceId}`);
+    logger.info(`Successfully stopped service instance: ${instanceId}`);
+
+    return {
+      instance: {
+        id: instance.id,
+        name: instance.name,
+        status: "STOPPED",
+        service: instance.subscription.service,
+        plan: instance.subscription.plan,
+      },
+      stop: {
+        stoppedAt: new Date().toISOString(),
+        method: "Scale to Zero",
+        preservedData: true,
+      },
+      message: "Service instance stopped successfully",
+      nextSteps: [
+        "All pods have been terminated",
+        "Data and configuration are preserved",
+        "Use START to resume the service",
+        "Resources are freed up while stopped",
+      ],
+    };
+  } catch (error) {
+    logger.error("Service instance stop failed:", error);
+
+    // Update instance status to indicate stop failed
+    try {
+      await prisma.serviceInstance.update({
+        where: { id: instanceId },
+        data: {
+          healthStatus: `Stop failed: ${error.message}`,
+          lastHealthCheck: new Date(),
+        },
+      });
+    } catch (updateError) {
+      logger.error(
+        "Failed to update instance status after stop failure:",
+        updateError
+      );
+    }
+
+    throw error;
+  }
+};
+
+/**
+ * Start service instance from stopped state (scale up to 1 replica)
+ * @param {string} instanceId - Service instance ID
+ * @returns {Promise<Object>} Start result
+ */
+const startServiceInstance = async (instanceId) => {
+  try {
+    // Get instance details
+    const instance = await prisma.serviceInstance.findUnique({
+      where: { id: instanceId },
+      include: {
+        subscription: {
+          include: {
+            service: { select: { name: true, slug: true } },
+            plan: { select: { name: true, planType: true } },
+            user: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    if (!instance) {
+      throw new Error("Service instance not found");
+    }
+
+    if (instance.status !== "STOPPED") {
+      throw new Error("Can only start stopped instances");
+    }
+
+    if (!isK8sAvailable()) {
+      throw new Error("Kubernetes cluster not available");
+    }
+
+    logger.info(`Starting service instance: ${instanceId}`);
+
+    // Update status to indicate starting in progress
+    await prisma.serviceInstance.update({
+      where: { id: instanceId },
+      data: {
+        status: "STARTING",
+        healthStatus: "Starting...",
+        lastHealthCheck: new Date(),
+      },
+    });
+
+    logger.info(`Instance status updated to STARTING: ${instanceId}`);
+
+    // Scale deployment to 1 replica
+    const { getAppsV1ApiClient } = await import("../../config/kubernetes.js");
+    const appsV1Api = getAppsV1ApiClient();
+
+    const deploymentResponse = await appsV1Api.readNamespacedDeployment({
+      name: instance.deploymentName,
+      namespace: instance.namespace,
+    });
+
+    const deployment = deploymentResponse.body || deploymentResponse;
+
+    // Update deployment to 1 replica
+    const updatedDeployment = {
+      ...deployment,
+      spec: {
+        ...deployment.spec,
+        replicas: 1,
+      },
+    };
+
+    logger.info(`Scaling deployment to 1 replica: ${instance.deploymentName}`);
+    await appsV1Api.replaceNamespacedDeployment({
+      name: instance.deploymentName,
+      namespace: instance.namespace,
+      body: updatedDeployment,
+    });
+
+    // Wait for deployment to be ready
+    logger.info(
+      `Waiting for deployment to be ready: ${instance.deploymentName}`
+    );
+    const readyResult = await k8sHelper.waitForDeploymentReady(
+      instance.deploymentName,
+      instance.namespace,
+      180000 // 3 minutes timeout for start
+    );
+
+    if (!readyResult.ready) {
+      throw new Error("Service start failed to complete within timeout");
+    }
+
+    // Get the new pod name after start
+    logger.info(
+      `Getting pod information for deployment: ${instance.deploymentName}`
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 3000)); // 3 second delay for new pod
+
+    const pods = await k8sHelper.getPodsForDeployment(
+      instance.deploymentName,
+      instance.namespace
+    );
+
+    let newPodName = instance.podName; // Keep existing if no pods found
+    if (pods && pods.length > 0) {
+      // Sort pods by creation time (newest first)
+      const sortedPods = pods.sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+      );
+
+      // Select the newest pod
+      const newestPod = sortedPods[0];
+      newPodName = newestPod.name;
+
+      logger.info(
+        `Service started with pod: ${newPodName} for instance: ${instanceId}`
+      );
+    } else {
+      logger.warn(
+        `No pods found after start for deployment: ${instance.deploymentName}`
+      );
+    }
+
+    // Update instance status to RUNNING with new pod name
+    await prisma.serviceInstance.update({
+      where: { id: instanceId },
+      data: {
+        status: "RUNNING",
+        podName: newPodName,
+        healthStatus: "Healthy - Started",
+        lastStarted: new Date(),
+        lastHealthCheck: new Date(),
+      },
+    });
+
+    logger.info(`Instance status updated to RUNNING: ${instanceId}`);
+    logger.info(`Successfully started service instance: ${instanceId}`);
+
+    return {
+      instance: {
+        id: instance.id,
+        name: instance.name,
+        status: "RUNNING",
+        service: instance.subscription.service,
+        plan: instance.subscription.plan,
+      },
+      start: {
+        startedAt: new Date().toISOString(),
+        method: "Scale to One",
+        newPodName: newPodName,
+      },
+      message: "Service instance started successfully",
+      nextSteps: [
+        "New pod has been created and is running",
+        "Service is now accessible",
+        "All data and configuration restored",
+        "Check instance status for updates",
+      ],
+    };
+  } catch (error) {
+    logger.error("Service instance start failed:", error);
+
+    // Update instance status to indicate start failed
+    try {
+      await prisma.serviceInstance.update({
+        where: { id: instanceId },
+        data: {
+          status: "STOPPED", // Revert to STOPPED if start fails
+          healthStatus: `Start failed: ${error.message}`,
+          lastHealthCheck: new Date(),
+        },
+      });
+    } catch (updateError) {
+      logger.error(
+        "Failed to update instance status after start failure:",
+        updateError
+      );
+    }
+
+    throw error;
+  }
+};
+
 export default {
   provisionServiceInstance,
   terminateServiceInstance,
@@ -1025,4 +1402,6 @@ export default {
   getUserInstances,
   refreshInstancePodName,
   restartServiceInstance,
+  stopServiceInstance,
+  startServiceInstance,
 };

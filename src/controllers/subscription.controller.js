@@ -713,6 +713,242 @@ const restartSubscription = async (req, res) => {
   }
 };
 
+/**
+ * Stop subscription service temporarily
+ * PUT /api/subscriptions/:subscriptionId/stop
+ */
+const stopSubscription = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { subscriptionId } = req.params;
+
+    // Get subscription details to verify ownership and get instance
+    const subscription = await subscriptionService.getSubscriptionDetails(
+      subscriptionId,
+      userId
+    );
+
+    if (!subscription) {
+      return sendResponse(
+        res,
+        StatusCodes.NOT_FOUND,
+        null,
+        "Subscription not found"
+      );
+    }
+
+    // Check if subscription has an active service instance
+    if (!subscription.instances || subscription.instances.length === 0) {
+      return sendResponse(
+        res,
+        StatusCodes.NOT_FOUND,
+        null,
+        "No service instance found for this subscription"
+      );
+    }
+
+    // Find the running instance
+    const runningInstance = subscription.instances.find(
+      (inst) => inst.status === "RUNNING"
+    );
+
+    if (!runningInstance) {
+      return sendResponse(
+        res,
+        StatusCodes.BAD_REQUEST,
+        null,
+        "No running service instance found to stop"
+      );
+    }
+
+    // Import provisioning service to stop the instance
+    const provisioningService = (
+      await import("../services/k8s/provisioning.service.js")
+    ).default;
+
+    // Stop the service instance
+    const result = await provisioningService.stopServiceInstance(
+      runningInstance.id
+    );
+
+    // Enhance response with subscription context
+    const enhancedResult = {
+      ...result,
+      subscription: {
+        id: subscription.id,
+        service: subscription.service,
+        plan: subscription.plan,
+        status: subscription.status,
+      },
+    };
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      enhancedResult,
+      "Subscription service stopped successfully"
+    );
+  } catch (error) {
+    logger.error("Stop subscription error:", error);
+
+    if (error.message === "Subscription not found") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
+    }
+
+    if (error.message.includes("Can only stop running")) {
+      return sendResponse(
+        res,
+        StatusCodes.BAD_REQUEST,
+        null,
+        "Can only stop running service instances"
+      );
+    }
+
+    if (error.message.includes("Kubernetes cluster not available")) {
+      return sendResponse(
+        res,
+        StatusCodes.SERVICE_UNAVAILABLE,
+        null,
+        "Service stop temporarily unavailable"
+      );
+    }
+
+    if (error.message.includes("Stop failed")) {
+      return sendResponse(
+        res,
+        StatusCodes.INTERNAL_SERVER_ERROR,
+        null,
+        "Service stop failed to complete"
+      );
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to stop subscription service"
+    );
+  }
+};
+
+/**
+ * Start subscription service from stopped state
+ * PUT /api/subscriptions/:subscriptionId/start
+ */
+const startSubscription = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { subscriptionId } = req.params;
+
+    // Get subscription details to verify ownership and get instance
+    const subscription = await subscriptionService.getSubscriptionDetails(
+      subscriptionId,
+      userId
+    );
+
+    if (!subscription) {
+      return sendResponse(
+        res,
+        StatusCodes.NOT_FOUND,
+        null,
+        "Subscription not found"
+      );
+    }
+
+    // Check if subscription has an active service instance
+    if (!subscription.instances || subscription.instances.length === 0) {
+      return sendResponse(
+        res,
+        StatusCodes.NOT_FOUND,
+        null,
+        "No service instance found for this subscription"
+      );
+    }
+
+    // Find the stopped instance
+    const stoppedInstance = subscription.instances.find(
+      (inst) => inst.status === "STOPPED"
+    );
+
+    if (!stoppedInstance) {
+      return sendResponse(
+        res,
+        StatusCodes.BAD_REQUEST,
+        null,
+        "No stopped service instance found to start"
+      );
+    }
+
+    // Import provisioning service to start the instance
+    const provisioningService = (
+      await import("../services/k8s/provisioning.service.js")
+    ).default;
+
+    // Start the service instance
+    const result = await provisioningService.startServiceInstance(
+      stoppedInstance.id
+    );
+
+    // Enhance response with subscription context
+    const enhancedResult = {
+      ...result,
+      subscription: {
+        id: subscription.id,
+        service: subscription.service,
+        plan: subscription.plan,
+        status: subscription.status,
+      },
+    };
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      enhancedResult,
+      "Subscription service started successfully"
+    );
+  } catch (error) {
+    logger.error("Start subscription error:", error);
+
+    if (error.message === "Subscription not found") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
+    }
+
+    if (error.message.includes("Can only start stopped")) {
+      return sendResponse(
+        res,
+        StatusCodes.BAD_REQUEST,
+        null,
+        "Can only start stopped service instances"
+      );
+    }
+
+    if (error.message.includes("Kubernetes cluster not available")) {
+      return sendResponse(
+        res,
+        StatusCodes.SERVICE_UNAVAILABLE,
+        null,
+        "Service start temporarily unavailable"
+      );
+    }
+
+    if (error.message.includes("Start failed")) {
+      return sendResponse(
+        res,
+        StatusCodes.INTERNAL_SERVER_ERROR,
+        null,
+        "Service start failed to complete"
+      );
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to start subscription service"
+    );
+  }
+};
+
 export default {
   getUserSubscriptions,
   getSubscriptionDetails,
@@ -723,4 +959,6 @@ export default {
   getSubscriptionMetrics,
   retryProvisioning,
   restartSubscription,
+  stopSubscription,
+  startSubscription,
 };

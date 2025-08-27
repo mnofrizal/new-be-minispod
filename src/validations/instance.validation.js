@@ -125,6 +125,30 @@ const restartInstance = {
   }),
 };
 
+/**
+ * Validation schema for stopping service instance
+ */
+const stopInstance = {
+  params: Joi.object({
+    id: Joi.string().required().messages({
+      "string.empty": "Instance ID is required",
+      "any.required": "Instance ID is required",
+    }),
+  }),
+};
+
+/**
+ * Validation schema for starting service instance
+ */
+const startInstance = {
+  params: Joi.object({
+    id: Joi.string().required().messages({
+      "string.empty": "Instance ID is required",
+      "any.required": "Instance ID is required",
+    }),
+  }),
+};
+
 export default {
   createInstance,
   getUserInstances,
@@ -133,4 +157,6 @@ export default {
   terminateInstance,
   getInstanceLogs,
   restartInstance,
+  stopInstance,
+  startInstance,
 };

@@ -288,6 +288,9 @@ enum InstanceStatus {
   ERROR
   TERMINATED
   MAINTENANCE
+  RESTARTING
+  STOPPING
+  STARTING
 }
 
 model ServiceInstance {

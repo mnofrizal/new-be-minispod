@@ -440,6 +440,160 @@ const restartInstance = async (req, res) => {
   }
 };
 
+/**
+ * Stop service instance temporarily
+ * PUT /api/instances/:id/stop
+ */
+const stopInstance = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // First verify instance belongs to user
+    const instanceStatus = await provisioningService.getInstanceStatus(id);
+    if (instanceStatus.instance.subscription.user.id !== userId) {
+      return sendResponse(
+        res,
+        StatusCodes.FORBIDDEN,
+        null,
+        "Access denied to this service instance"
+      );
+    }
+
+    // Call the stop service
+    const result = await provisioningService.stopServiceInstance(id);
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      result,
+      "Service instance stop initiated successfully"
+    );
+  } catch (error) {
+    logger.error("Stop instance error:", error);
+
+    if (error.message.includes("not found")) {
+      return sendResponse(
+        res,
+        StatusCodes.NOT_FOUND,
+        null,
+        "Service instance not found"
+      );
+    }
+
+    if (error.message.includes("Can only stop running")) {
+      return sendResponse(
+        res,
+        StatusCodes.BAD_REQUEST,
+        null,
+        "Can only stop running service instances"
+      );
+    }
+
+    if (error.message.includes("Kubernetes cluster not available")) {
+      return sendResponse(
+        res,
+        StatusCodes.SERVICE_UNAVAILABLE,
+        null,
+        "Service stop temporarily unavailable"
+      );
+    }
+
+    if (error.message.includes("Stop failed")) {
+      return sendResponse(
+        res,
+        StatusCodes.INTERNAL_SERVER_ERROR,
+        null,
+        "Service stop failed to complete"
+      );
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to stop service instance"
+    );
+  }
+};
+
+/**
+ * Start service instance from stopped state
+ * PUT /api/instances/:id/start
+ */
+const startInstance = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    // First verify instance belongs to user
+    const instanceStatus = await provisioningService.getInstanceStatus(id);
+    if (instanceStatus.instance.subscription.user.id !== userId) {
+      return sendResponse(
+        res,
+        StatusCodes.FORBIDDEN,
+        null,
+        "Access denied to this service instance"
+      );
+    }
+
+    // Call the start service
+    const result = await provisioningService.startServiceInstance(id);
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      result,
+      "Service instance start initiated successfully"
+    );
+  } catch (error) {
+    logger.error("Start instance error:", error);
+
+    if (error.message.includes("not found")) {
+      return sendResponse(
+        res,
+        StatusCodes.NOT_FOUND,
+        null,
+        "Service instance not found"
+      );
+    }
+
+    if (error.message.includes("Can only start stopped")) {
+      return sendResponse(
+        res,
+        StatusCodes.BAD_REQUEST,
+        null,
+        "Can only start stopped service instances"
+      );
+    }
+
+    if (error.message.includes("Kubernetes cluster not available")) {
+      return sendResponse(
+        res,
+        StatusCodes.SERVICE_UNAVAILABLE,
+        null,
+        "Service start temporarily unavailable"
+      );
+    }
+
+    if (error.message.includes("Start failed")) {
+      return sendResponse(
+        res,
+        StatusCodes.INTERNAL_SERVER_ERROR,
+        null,
+        "Service start failed to complete"
+      );
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to start service instance"
+    );
+  }
+};
+
 export default {
   createInstance,
   getUserInstances,
@@ -448,4 +602,6 @@ export default {
   updateInstance,
   getInstanceLogs,
   restartInstance,
+  stopInstance,
+  startInstance,
 };

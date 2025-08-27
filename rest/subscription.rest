@@ -770,3 +770,267 @@ Authorization: Bearer {{authToken}}
 # - Poll subscription status after restart
 # - Show both subscription and instance information
 # - Handle all error scenarios with clear messages
+
+### ============================================================================
+### STOP SUBSCRIPTION SERVICE FUNCTIONALITY (NEW)
+### ============================================================================
+
+### Test 1: Stop Running Subscription Service (Success Case)
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/stop
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 2: Stop Non-existent Subscription (should fail)
+PUT {{baseUrl}}/subscriptions/clnonexistentsubscription/stop
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 3: Stop Subscription Without Authentication (should fail)
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/stop
+Content-Type: application/json
+
+### Test 4: Stop Subscription with Invalid JWT (should fail)
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/stop
+Authorization: Bearer invalid_jwt_token
+Content-Type: application/json
+
+### Test 5: Stop Subscription Belonging to Another User (should fail)
+# Note: Use different user's subscription ID
+PUT {{baseUrl}}/subscriptions/other-user-subscription-id/stop
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 6: Stop Subscription with No Running Instance (should fail)
+# Note: Use subscription ID that has no running instances
+PUT {{baseUrl}}/subscriptions/no-running-instance-subscription/stop
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### ============================================================================
+### START SUBSCRIPTION SERVICE FUNCTIONALITY (NEW)
+### ============================================================================
+
+### Test 7: Start Stopped Subscription Service (Success Case)
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/start
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 8: Start Non-existent Subscription (should fail)
+PUT {{baseUrl}}/subscriptions/clnonexistentsubscription/start
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 9: Start Subscription Without Authentication (should fail)
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/start
+Content-Type: application/json
+
+### Test 10: Start Subscription with Invalid JWT (should fail)
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/start
+Authorization: Bearer invalid_jwt_token
+Content-Type: application/json
+
+### Test 11: Start Subscription Belonging to Another User (should fail)
+# Note: Use different user's subscription ID
+PUT {{baseUrl}}/subscriptions/other-user-subscription-id/start
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 12: Start Subscription with No Stopped Instance (should fail)
+# Note: Use subscription ID that has no stopped instances
+PUT {{baseUrl}}/subscriptions/no-stopped-instance-subscription/start
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### ============================================================================
+### SUBSCRIPTION STOP/START WORKFLOW TESTS
+### ============================================================================
+
+### Workflow Test 1: Check Subscription Status Before Stop
+GET {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 2: Stop Running Subscription Service
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/stop
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Workflow Test 3: Check Subscription Status After Stop (should show STOPPED instance)
+GET {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 4: Verify Subscription List Shows Stopped Status
+GET {{baseUrl}}/subscriptions?includeInstances=true
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 5: Start Stopped Subscription Service
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/start
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Workflow Test 6: Check Subscription Status After Start (should show RUNNING instance)
+GET {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 7: Verify Subscription List Shows Running Status
+GET {{baseUrl}}/subscriptions?includeInstances=true
+Authorization: Bearer {{authToken}}
+
+### ============================================================================
+### SUBSCRIPTION STOP/START VS OTHER OPERATIONS COMPARISON
+### ============================================================================
+
+### Scenario 1: Stop Subscription Service (Temporary, Reversible)
+# Use case: User wants to pause service temporarily to save resources
+# Expected: Instance status becomes STOPPED, pods terminated, data preserved
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/stop
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Scenario 2: Start Subscription Service (Resume from Stopped)
+# Use case: User wants to resume paused service
+# Expected: Instance status becomes RUNNING, new pods created, data restored
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/start
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Scenario 3: Restart Subscription Service (Rolling Restart)
+# Use case: Service is running but has issues (memory leak, hung processes)
+# Expected: Pod is restarted with minimal downtime, same configuration
+POST {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/restart
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Scenario 4: Retry Provisioning (Full Redeploy)
+# Use case: Service deployment failed completely (ERROR status)
+# Expected: Complete cleanup and redeploy from scratch
+POST {{baseUrl}}/subscriptions/error-subscription-id/retry-provisioning
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### ============================================================================
+### SUBSCRIPTION STOP/START RESPONSE STRUCTURE VALIDATION
+### ============================================================================
+
+### Test Expected Stop Response Structure
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/stop
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+# Expected Stop Response Structure:
+# {
+#   "success": true,
+#   "statusCode": 200,
+#   "data": {
+#     "instance": {
+#       "id": "cmeu4cgod0009vvborivibrmy",
+#       "name": "n8n-automation-user123",
+#       "status": "STOPPED",
+#       "service": { "name": "N8N Automation", "slug": "n8n-automation" },
+#       "plan": { "name": "Basic", "planType": "BASIC" }
+#     },
+#     "stop": {
+#       "stoppedAt": "2025-08-27T15:46:00.000Z",
+#       "method": "Scale to Zero",
+#       "preservedData": true
+#     },
+#     "subscription": {
+#       "id": "cmeu4cgo20007vvbohd84o1w1",
+#       "service": { "name": "N8N Automation", "slug": "n8n-automation" },
+#       "plan": { "name": "Basic", "planType": "BASIC" },
+#       "status": "ACTIVE"
+#     },
+#     "message": "Service instance stopped successfully",
+#     "nextSteps": [
+#       "All pods have been terminated",
+#       "Data and configuration are preserved",
+#       "Use START to resume the service",
+#       "Resources are freed up while stopped"
+#     ]
+#   },
+#   "message": "Subscription service stopped successfully",
+#   "timestamp": "2025-08-27T15:46:00.123Z"
+# }
+
+### Test Expected Start Response Structure
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/start
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+# Expected Start Response Structure:
+# {
+#   "success": true,
+#   "statusCode": 200,
+#   "data": {
+#     "instance": {
+#       "id": "cmeu4cgod0009vvborivibrmy",
+#       "name": "n8n-automation-user123",
+#       "status": "RUNNING",
+#       "service": { "name": "N8N Automation", "slug": "n8n-automation" },
+#       "plan": { "name": "Basic", "planType": "BASIC" }
+#     },
+#     "start": {
+#       "startedAt": "2025-08-27T15:47:00.000Z",
+#       "method": "Scale to One",
+#       "newPodName": "n8n-automation-user123-def456"
+#     },
+#     "subscription": {
+#       "id": "cmeu4cgo20007vvbohd84o1w1",
+#       "service": { "name": "N8N Automation", "slug": "n8n-automation" },
+#       "plan": { "name": "Basic", "planType": "BASIC" },
+#       "status": "ACTIVE"
+#     },
+#     "message": "Service instance started successfully",
+#     "nextSteps": [
+#       "New pod has been created and is running",
+#       "Service is now accessible",
+#       "All data and configuration restored",
+#       "Check instance status for updates"
+#     ]
+#   },
+#   "message": "Subscription service started successfully",
+#   "timestamp": "2025-08-27T15:47:00.123Z"
+# }
+
+### ============================================================================
+### SUBSCRIPTION STOP/START FUNCTIONALITY NOTES
+### ============================================================================
+
+# Subscription Stop/Start vs Instance Stop/Start:
+#
+# SUBSCRIPTION STOP/START:
+# - User-friendly endpoint: PUT /api/subscriptions/:id/stop|start
+# - Automatically finds running/stopped instance for the subscription
+# - Validates subscription ownership and status
+# - Returns subscription context in response
+# - Better UX for users who think in terms of subscriptions
+#
+# INSTANCE STOP/START:
+# - Technical endpoint: PUT /api/instances/:id/stop|start
+# - Requires user to know specific instance ID
+# - Direct instance manipulation
+# - More granular control for advanced users
+#
+# Both endpoints:
+# - Use the same underlying stop/start logic
+# - Perform Kubernetes scaling (0 replicas ↔ 1 replica)
+# - Preserve data and configuration during stop/start cycle
+# - Provide same functionality with different UX approaches
+#
+# Subscription Stop/Start Business Rules:
+# - STOP only works for subscriptions with RUNNING instances
+# - START only works for subscriptions with STOPPED instances
+# - User can only control their own subscriptions
+# - Kubernetes cluster must be available
+# - Data and configuration are preserved during stop/start cycle
+# - Pod names may change after start (new pod created)
+# - Response includes both instance and subscription context
+#
+# Frontend Implementation Notes:
+# - Show STOP button on subscription dashboard for running services
+# - Show START button on subscription dashboard for stopped services
+# - Use subscription-based endpoints for better UX
+# - Display subscription context in stop/start confirmation
+# - Poll subscription status after stop/start operations
+# - Show both subscription and instance information
+# - Handle all error scenarios with clear messages
+# - Display estimated time and resource savings for stop operations

@@ -86,4 +86,26 @@ router.post(
   instanceController.restartInstance
 );
 
+/**
+ * @route PUT /api/instances/:id/stop
+ * @desc Stop service instance temporarily
+ * @access Private (User)
+ */
+router.put(
+  "/:id/stop",
+  validate(instanceValidation.stopInstance),
+  instanceController.stopInstance
+);
+
+/**
+ * @route PUT /api/instances/:id/start
+ * @desc Start service instance from stopped state
+ * @access Private (User)
+ */
+router.put(
+  "/:id/start",
+  validate(instanceValidation.startInstance),
+  instanceController.startInstance
+);
+
 export default router;

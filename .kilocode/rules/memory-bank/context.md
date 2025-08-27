@@ -2,20 +2,17 @@
 
 ## Current Work Focus
 
-The backend API has **completed Phase 4: Service Provisioning & Instance Management** with full Kubernetes integration for automated service deployment. The project now has a complete end-to-end platform from user registration to service provisioning with comprehensive subscription management, payment processing, and Kubernetes orchestration.
+The backend API has **completed Phase 5: Advanced Service Control Features** with comprehensive STOP/START functionality for service instances. The project now includes complete service lifecycle management including provisioning, restart, stop, start, and termination capabilities with both instance-level and subscription-level endpoints for optimal user experience.
 
 **Recent Major Updates (August 2025):**
 
-- **Phase 4 Completion**: Full Kubernetes service provisioning and instance management system
-- **Production-Ready Deployment**: Robust service deployment with comprehensive error handling
-- **Kubernetes Integration**: Complete automation of service lifecycle management
-- **End-to-End Testing**: Verified subscription-to-deployment workflow
-- **Architecture Modernization**: Completed comprehensive class-to-const conversion across 9 core files
-- **Enhanced Admin Features**: Added subscription expiration and advanced force-cancel capabilities
-- **Database Schema Improvements**: Resolved unique constraint issues and implemented custom transaction IDs
-- **Transaction System Enhancement**: Implemented TXMP-XXX format with PostgreSQL sequence-based auto-increment
-- **Pod Name Synchronization Fix**: Resolved critical issue where database stored outdated pod names after rolling updates
-- **Subscription Metrics Endpoint**: Added real-time metrics API for frontend polling with simplified response structure
+- **Phase 5 Completion**: Complete STOP/START functionality for service instances
+- **Dual Endpoint Strategy**: Both instance-level and subscription-level endpoints for different user types
+- **Database Schema Enhancement**: Added RESTARTING, STOPPING, and STARTING status values to InstanceStatus enum
+- **Real-time Log Streaming**: Socket.IO integration for live Kubernetes pod log monitoring
+- **Retry Provisioning**: Complete retry system for failed service deployments
+- **Comprehensive Testing**: Full test suites for all new functionality
+- **Production-Ready Implementation**: Robust error handling and status management
 
 ## Recent Implementation Status
 
@@ -88,27 +85,40 @@ The backend API has **completed Phase 4: Service Provisioning & Instance Managem
 - **Production Readiness**: Battle-tested deployment logic with extensive debugging
 - **Pod Name Synchronization**: Fixed critical issue where database stored outdated pod names after Kubernetes rolling updates
 
+**Phase 5: Advanced Service Control Features (Just Completed - August 27, 2025):**
+
+- **Real-time Log Streaming**: Socket.IO integration for live Kubernetes pod log monitoring with automatic pod discovery
+- **Retry Provisioning System**: Complete retry functionality for failed service deployments with cleanup and redeploy
+- **Restart Functionality**: Kubernetes rolling restart with pod name synchronization and minimal downtime
+- **STOP/START Functionality**: Complete service pause/resume capabilities with Kubernetes scaling (0↔1 replicas)
+- **Dual Endpoint Strategy**: Both instance-level and subscription-level endpoints for optimal UX
+- **Database Schema Enhancement**: Added RESTARTING, STOPPING, and STARTING status values to InstanceStatus enum
+- **Comprehensive Testing**: Full test suites for all new functionality with workflow validation
+
 ### 🔄 Current State
 
 - **Environment**: Development setup with local PostgreSQL database and K3s cluster integration
-- **Database**: Enhanced schema with Int currency fields for IDR precision and custom transaction IDs
-- **Core Services**: All 6 services modernized with const-based architecture and tested
+- **Database**: Enhanced schema with expanded InstanceStatus enum and custom transaction IDs
+- **Core Services**: All services modernized with const-based architecture and comprehensive testing
 - **Payment Integration**: Midtrans fully operational with webhook processing and custom transaction IDs
 - **Wallet System**: Production-ready with comprehensive error handling
 - **Subscription System**: Complete user and admin subscription management with advanced features and real-time metrics
-- **Kubernetes Integration**: Full service provisioning and instance management operational with synchronized pod names
+- **Kubernetes Integration**: Full service provisioning and instance management with advanced control features
+- **Service Control**: Complete STOP/START/RESTART/RETRY functionality with dual endpoint strategy
+- **Real-time Features**: Socket.IO log streaming and metrics polling capabilities
 - **Architecture**: Modernized codebase with consistent const-based patterns
 - **Transaction System**: Custom TXMP-XXX ID format with PostgreSQL sequence auto-increment
-- **Progress**: 100% complete - All core platform features implemented with production-ready monitoring
+- **Progress**: 100% complete - All core platform features implemented with advanced service control capabilities
 
 ## Next Steps
 
-### Future Enhancements (Phase 5+)
+### Future Enhancements (Phase 6+)
 
 1. **Domain Management**: Custom domain and SSL certificate management
 2. **Auto-scaling**: Dynamic resource scaling based on usage patterns
 3. **Advanced Monitoring**: Enhanced metrics collection and alerting
 4. **Multi-region Support**: Geographic distribution of services
+5. **Service Templates**: User-defined service configurations and templates
 
 ### Optional Enhancements
 
@@ -116,6 +126,7 @@ The backend API has **completed Phase 4: Service Provisioning & Instance Managem
 - **Advanced Multi-tenancy**: Enhanced tenant isolation and management
 - **Service Mesh Integration**: Istio/Linkerd for advanced networking
 - **Backup & Recovery**: Automated backup systems for user data
+- **CI/CD Integration**: Automated deployment pipelines for user services
 
 ## Key Decisions Made
 
@@ -125,10 +136,72 @@ The backend API has **completed Phase 4: Service Provisioning & Instance Managem
 - **K8s Client**: Official Kubernetes JavaScript client for cluster integration
 - **Architecture**: Clean separation of controllers, services, and utilities
 - **Currency Storage**: Int fields for IDR to avoid decimal precision issues
+- **Service Control**: Dual endpoint strategy for different user types (instance vs subscription level)
+- **Real-time Communication**: Socket.IO for log streaming and live updates
 
 ## Recent Implementation History
 
-### Phase 4.5: Pod Name Synchronization & Metrics Enhancement (Just Completed - August 26, 2025)
+### Phase 5: Advanced Service Control Features (Just Completed - August 27, 2025)
+
+#### Real-time Log Streaming Implementation
+
+- **Location**: [`src/config/socket.js`](src/config/socket.js:1) - Socket.IO server configuration and log streaming logic
+- **Features**: Live Kubernetes pod log streaming with automatic pod discovery and JWT authentication
+- **Architecture**: Namespace-based Socket.IO rooms (`/k8s-logs`) with automatic cleanup and error handling
+- **Integration**: Seamless integration with existing authentication system and Kubernetes helper utilities
+- **Testing**: [`public/test-logs.html`](public/test-logs.html:1) - Complete test interface for log streaming functionality
+
+#### Retry Provisioning System Implementation
+
+- **Location**: [`src/controllers/subscription.controller.js:422-520`](src/controllers/subscription.controller.js:422) - Retry provisioning endpoint
+- **Features**: Complete retry system for failed service deployments with automatic cleanup and redeploy
+- **Business Logic**: Only works for ERROR or TERMINATED instances with comprehensive validation
+- **Integration**: Uses existing provisioning service with enhanced error handling and status management
+- **Testing**: [`rest/subscription.rest:459-555`](rest/subscription.rest:459) - Comprehensive test cases for retry functionality
+
+#### Restart Functionality Implementation
+
+- **Location**: [`src/services/k8s/provisioning.service.js:796-1055`](src/services/k8s/provisioning.service.js:796) - Complete restart logic
+- **Features**: Kubernetes rolling restart with pod name synchronization and minimal downtime
+- **Architecture**: Uses deployment annotation updates to trigger rolling restarts with proper readiness checks
+- **Dual Endpoints**: Both instance-level (`PUT /api/instances/:id/restart`) and subscription-level (`POST /api/subscriptions/:id/restart`)
+- **Testing**: [`rest/instance.rest:200-350`](rest/instance.rest:200) and [`rest/subscription.rest:557-772`](rest/subscription.rest:557) - Complete test suites
+
+#### STOP/START Functionality Implementation
+
+- **Location**: [`src/services/k8s/provisioning.service.js:1062-1395`](src/services/k8s/provisioning.service.js:1062) - Complete STOP/START logic
+- **Features**: Service pause/resume capabilities using Kubernetes deployment scaling (0↔1 replicas)
+- **Architecture**: Proper status lifecycle management (RUNNING→STOPPING→STOPPED and STOPPED→STARTING→RUNNING)
+- **Dual Endpoints**: Both instance-level and subscription-level endpoints for optimal user experience
+- **Data Preservation**: All data and configuration preserved during stop/start cycle
+- **Testing**: [`rest/instance.rest:350-500`](rest/instance.rest:350) and [`rest/subscription.rest:773-1000`](rest/subscription.rest:773) - Comprehensive test suites
+
+#### Database Schema Enhancement
+
+- **Location**: [`prisma/schema.prisma:283-293`](prisma/schema.prisma:283) - Enhanced InstanceStatus enum
+- **Enhancement**: Added RESTARTING, STOPPING, and STARTING status values to support advanced service control
+- **Migration**: Successfully applied with `npx prisma db push` for immediate schema updates
+- **Impact**: Enables proper status tracking for all service lifecycle operations
+
+#### Critical Issues Resolved During Implementation
+
+- **Socket.IO Integration**: Resolved import errors and separated Socket.IO setup into dedicated config module
+- **Kubernetes Log Streaming**: Fixed pod discovery using correct label selectors from k8s-helper utility
+- **Container Name Resolution**: Resolved HTTP 400 errors by explicitly specifying container names from service slugs
+- **Log Output Formatting**: Implemented log parsing to remove verbose timestamps and ANSI color codes
+- **Database Schema Alignment**: Fixed Prisma queries to match actual schema relationships and added missing enum values
+- **Kubernetes Patch Error**: Fixed Content-Type header issue for proper Kubernetes API communication
+- **Status Lifecycle Management**: Implemented proper status transitions for all service control operations
+
+#### End-to-End Integration
+
+- **Service Control Integration**: Complete integration of STOP/START/RESTART/RETRY with existing subscription system
+- **Real-time Monitoring**: Socket.IO log streaming integrated with service instance management
+- **Dual UX Strategy**: Both technical (instance-level) and user-friendly (subscription-level) endpoints
+- **Comprehensive Testing**: Complete test coverage for all new functionality with workflow validation
+- **Production Readiness**: Robust error handling, status management, and resource cleanup
+
+### Phase 4.5: Pod Name Synchronization & Metrics Enhancement (Previously Completed - August 26, 2025)
 
 #### Pod Name Synchronization Critical Fix
 
@@ -166,70 +239,6 @@ The backend API has **completed Phase 4: Service Provisioning & Instance Managem
   }
   ```
 - **Testing**: [`rest/subscription.rest:363-445`](rest/subscription.rest:363) - Comprehensive test suite with polling simulation
-
-#### Kubernetes Monitoring Enhancements
-
-- **Pod Endpoint Enhancement**: [`src/services/k8s/pod.service.js:108-141`](src/services/k8s/pod.service.js:108) - Added resource limits and requests information
-- **Deployment Endpoint Enhancement**: [`src/services/k8s/deployment.service.js:34-53`](src/services/k8s/deployment.service.js:34) - Added resource limits and volume mount information
-- **Complete Resource Visibility**: Both endpoints now show allocated resources AND actual usage metrics
-- **Admin Benefits**: Verify subscription upgrades actually update Kubernetes resource limits
-
-### Phase 4: Service Provisioning & Instance Management (Previously Completed)
-
-#### Kubernetes Provisioning System Implementation
-
-- **Location**: [`src/services/k8s/provisioning.service.js`](src/services/k8s/provisioning.service.js:1) - Complete service provisioning logic
-- **Features**: Automated deployment of N8N, Ghost, PostgreSQL, and other services with full Kubernetes integration
-- **Architecture**: Robust error handling, deployment readiness checks, and resource cleanup
-- **Integration**: Seamless integration with subscription system for automatic provisioning
-
-#### Service Instance Management API
-
-- **Location**: [`src/controllers/instance.controller.js`](src/controllers/instance.controller.js:1), [`src/routes/instance.routes.js`](src/routes/instance.routes.js:1), [`src/validations/instance.validation.js`](src/validations/instance.validation.js:1)
-- **Features**: Complete instance lifecycle management with 6 endpoints
-- **API Routes**: All routes under `/api/instances/*` with JWT authentication required
-- **Testing**: [`rest/instance.rest`](rest/instance.rest:1) - Comprehensive test cases for all instance operations
-
-#### Kubernetes Helper Utilities
-
-- **Location**: [`src/utils/k8s-helper.js`](src/utils/k8s-helper.js:1) - Core Kubernetes API operations
-- **Features**: Robust resource creation, deletion, and status checking with comprehensive error handling
-- **Deployment Readiness**: Industry best-practice readiness checks using deployment status conditions
-- **Error Recovery**: JSON error parsing and graceful failure handling
-
-#### Kubernetes Templates System
-
-- **Location**: [`src/config/k8s-templates.js`](src/config/k8s-templates.js:1) - Kubernetes manifest generation
-- **Features**: Dynamic manifest creation for services with proper resource allocation
-- **Configuration**: Health probes, environment variables, and K3s-specific settings
-- **Resource Management**: Optimized memory allocation and storage configuration
-
-#### Health Monitoring System
-
-- **Location**: [`src/services/k8s/health.service.js`](src/services/k8s/health.service.js:1), [`src/controllers/admin/health.controller.js`](src/controllers/admin/health.controller.js:1)
-- **Features**: Real-time service health monitoring with detailed status reporting
-- **API Routes**: Admin-only health monitoring endpoints
-- **Testing**: [`rest/admin/health.rest`](rest/admin/health.rest:1) - Health monitoring test cases
-
-#### Critical Issues Resolved During Implementation
-
-- **Kubernetes API Parameter Formatting**: Fixed object parameter format for all API calls
-- **Error Structure Parsing**: Implemented JSON parsing for Kubernetes API error responses
-- **Invalid Label Values**: Corrected label generation using service.slug instead of service.name
-- **StorageClass Configuration**: Updated to "local-path" for K3s compatibility
-- **Health Probe Configuration**: Corrected endpoints and timing for n8n services
-- **Memory Allocation**: Doubled memory limits to prevent OOMKilled errors
-- **Deployment Readiness Logic**: Implemented industry best-practice status condition checking
-- **Resource Cleanup Integration**: Unified subscription cancellation with Kubernetes resource termination
-- **Pod Name Synchronization**: Fixed critical issue where database stored outdated pod names after rolling updates
-
-#### End-to-End Integration
-
-- **Subscription Integration**: Automatic service provisioning on subscription creation
-- **Cancellation Integration**: Immediate resource cleanup on subscription cancellation
-- **Admin Controls**: Enhanced admin endpoints with Kubernetes resource management
-- **Testing Verification**: Complete end-to-end workflow testing from subscription to deployment
-- **Metrics Integration**: Real-time monitoring and metrics collection for frontend consumption
 
 ### Phase 3.5: Architecture Modernization & Advanced Features (Previously Completed)
 
