@@ -949,6 +949,46 @@ const startSubscription = async (req, res) => {
   }
 };
 
+/**
+ * Get subscription billing info with available upgrade plans
+ * GET /api/subscriptions/:subscriptionId/billing-info
+ */
+const getAvailableUpgrades = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { subscriptionId } = req.params;
+
+    const upgradeOptions = await subscriptionService.getAvailableUpgrades(
+      subscriptionId,
+      userId
+    );
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      upgradeOptions,
+      "Available upgrade plans retrieved successfully"
+    );
+  } catch (error) {
+    logger.error("Get available upgrades error:", error);
+
+    if (error.message === "Subscription not found") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
+    }
+
+    if (error.message.includes("Can only get upgrade options")) {
+      return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to retrieve available upgrade plans"
+    );
+  }
+};
+
 export default {
   getUserSubscriptions,
   getSubscriptionDetails,
@@ -961,4 +1001,5 @@ export default {
   restartSubscription,
   stopSubscription,
   startSubscription,
+  getAvailableUpgrades,
 };

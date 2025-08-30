@@ -26,8 +26,9 @@
 - [x] Credit-based billing system ✅ **COMPLETED**
 - [x] Midtrans payment integration ✅ **COMPLETED**
 - [x] Quota management system (Database ready, simplified approach) ✅ **COMPLETED**
-- [ ] Service provisioning workflow
+- [x] Service provisioning workflow ✅ **COMPLETED**
 - [x] Subscription management ✅ **COMPLETED**
+- [x] Advanced service control features ✅ **COMPLETED**
 - [ ] Auto-renewal system
 
 ---
@@ -211,49 +212,180 @@
 
 ---
 
-### **PHASE 4: KUBERNETES INTEGRATION** (Week 4-6)
+### **PHASE 4: KUBERNETES INTEGRATION** (Week 4-6) ✅ **COMPLETED**
 
 **Priority: CRITICAL**
 
-#### 4.1 Basic Provisioning
+#### 4.1 Basic Provisioning ✅ **COMPLETED**
 
-- [ ] **Create Service Files**
-  - [ ] `src/services/k8s/provisioning.service.js`
-  - [ ] `src/config/k8s-templates.js`
-  - [ ] `src/utils/k8s-helper.js`
-- [ ] **Kubernetes Integration**
-  - [ ] Extend existing `src/config/kubernetes.js` ✅ (Already exists)
-  - [ ] Use existing K8s monitoring services ✅ (Already exists)
-  - [ ] Create user namespaces
-  - [ ] Deploy services with resource limits
-- [ ] **Provisioning Workflow**
-  - [ ] Generate instance configuration
-  - [ ] Create user namespace
-  - [ ] Create ConfigMap/Secrets
-  - [ ] Create PVC for storage
-  - [ ] Create Deployment
-  - [ ] Create Service
-  - [ ] Create Ingress
-  - [ ] Wait for pod ready status
+- [x] **Create Service Files** ✅ **COMPLETED**
+  - [x] `src/services/k8s/provisioning.service.js` ✅
+  - [x] `src/config/k8s-templates.js` ✅
+  - [x] `src/utils/k8s-helper.js` ✅
+- [x] **Kubernetes Integration** ✅ **COMPLETED**
+  - [x] Extend existing `src/config/kubernetes.js` ✅
+  - [x] Use existing K8s monitoring services ✅
+  - [x] Create user namespaces ✅
+  - [x] Deploy services with resource limits ✅
+- [x] **Provisioning Workflow** ✅ **COMPLETED**
+  - [x] Generate instance configuration ✅
+  - [x] Create user namespace ✅
+  - [x] Create ConfigMap/Secrets ✅
+  - [x] Create PVC for storage ✅
+  - [x] Create Deployment ✅
+  - [x] Create Service ✅
+  - [x] Create Ingress ✅
+  - [x] Wait for pod ready status ✅
 
-#### 4.2 Resource Management
+#### 4.2 Resource Management ✅ **COMPLETED**
 
-- [ ] **Features Implementation**
-  - [ ] Dynamic resource scaling
-  - [ ] Storage management
-  - [ ] Health monitoring integration
-- [ ] **Integration with Existing K8s Monitoring**
-  - [ ] Leverage existing pod metrics collection ✅ (Already exists)
-  - [ ] Extend current monitoring for user instances
-  - [ ] Resource usage tracking and alerts
+- [x] **Features Implementation** ✅ **COMPLETED**
+  - [x] Dynamic resource scaling ✅
+  - [x] Storage management ✅
+  - [x] Health monitoring integration ✅
+- [x] **Integration with Existing K8s Monitoring** ✅ **COMPLETED**
+  - [x] Leverage existing pod metrics collection ✅
+  - [x] Extend current monitoring for user instances ✅
+  - [x] Resource usage tracking and alerts ✅
+
+#### 4.3 Service Instance Management ✅ **COMPLETED**
+
+- [x] **Create Controller Files** ✅ **COMPLETED**
+  - [x] `src/controllers/instance.controller.js` ✅
+- [x] **Create Route Files** ✅ **COMPLETED**
+  - [x] `src/routes/instance.routes.js` ✅
+- [x] **Create Validation Files** ✅ **COMPLETED**
+  - [x] `src/validations/instance.validation.js` ✅
+- [x] **Create Test Files** ✅ **COMPLETED**
+  - [x] `rest/instance.rest` ✅
+- [x] **Implement API Endpoints** ✅ **COMPLETED**
+  - [x] `GET /api/instances` - List user instances ✅
+  - [x] `POST /api/instances` - Create instance ✅
+  - [x] `GET /api/instances/:id` - Get instance details ✅
+  - [x] `PUT /api/instances/:id` - Update instance ✅
+  - [x] `DELETE /api/instances/:id` - Delete instance ✅
+  - [x] `GET /api/instances/:id/status` - Get instance status ✅
+
+#### 4.4 Health Monitoring System ✅ **COMPLETED**
+
+- [x] **Create Service Files** ✅ **COMPLETED**
+  - [x] `src/services/k8s/health.service.js` ✅
+- [x] **Create Controller Files** ✅ **COMPLETED**
+  - [x] `src/controllers/admin/health.controller.js` ✅
+- [x] **Create Test Files** ✅ **COMPLETED**
+  - [x] `rest/admin/health.rest` ✅
+- [x] **Health Monitoring Features** ✅ **COMPLETED**
+  - [x] Real-time service health checks ✅
+  - [x] Detailed status reporting ✅
+  - [x] Admin health monitoring endpoints ✅
 
 ---
 
-### **PHASE 5: AUTO-RENEWAL SYSTEM** (Week 6-7)
+### **PHASE 5: ADVANCED SERVICE CONTROL FEATURES** (Week 6-7) ✅ **COMPLETED**
 
 **Priority: HIGH**
 
-#### 5.1 Billing Job Scheduler
+#### 5.1 Real-time Log Streaming ✅ **COMPLETED**
+
+- [x] **Create Service Files** ✅ **COMPLETED**
+  - [x] `src/config/socket.js` ✅
+  - [x] `public/test-logs.html` ✅
+- [x] **Features Implementation** ✅ **COMPLETED**
+  - [x] Socket.IO integration for live Kubernetes pod log monitoring ✅
+  - [x] Automatic pod discovery with proper label selectors ✅
+  - [x] JWT authentication for Socket.IO connections ✅
+  - [x] Log parsing and sanitization (removing ANSI codes and timestamps) ✅
+  - [x] Namespace-based Socket.IO rooms (`/k8s-logs`) ✅
+  - [x] Automatic cleanup and error handling ✅
+
+#### 5.2 Retry Provisioning System ✅ **COMPLETED**
+
+- [x] **Update Controller Files** ✅ **COMPLETED**
+  - [x] `src/controllers/subscription.controller.js` ✅
+- [x] **Update Test Files** ✅ **COMPLETED**
+  - [x] `rest/subscription.rest` ✅
+- [x] **Features Implementation** ✅ **COMPLETED**
+  - [x] Complete retry system for failed service deployments ✅
+  - [x] Automatic cleanup and redeploy functionality ✅
+  - [x] Only works for ERROR or TERMINATED instances ✅
+  - [x] Comprehensive validation and error handling ✅
+  - [x] Uses existing provisioning service with enhanced status management ✅
+
+#### 5.3 Restart Functionality ✅ **COMPLETED**
+
+- [x] **Update Service Files** ✅ **COMPLETED**
+  - [x] `src/services/k8s/provisioning.service.js` ✅
+- [x] **Update Controller Files** ✅ **COMPLETED**
+  - [x] `src/controllers/instance.controller.js` ✅
+  - [x] `src/controllers/subscription.controller.js` ✅
+- [x] **Update Route Files** ✅ **COMPLETED**
+  - [x] `src/routes/instance.routes.js` ✅
+  - [x] `src/routes/subscription.routes.js` ✅
+- [x] **Update Validation Files** ✅ **COMPLETED**
+  - [x] `src/validations/instance.validation.js` ✅
+- [x] **Update Test Files** ✅ **COMPLETED**
+  - [x] `rest/instance.rest` ✅
+  - [x] `rest/subscription.rest` ✅
+- [x] **Features Implementation** ✅ **COMPLETED**
+  - [x] Kubernetes rolling restart with pod name synchronization ✅
+  - [x] Minimal downtime with proper readiness checks ✅
+  - [x] Dual endpoint strategy (instance-level and subscription-level) ✅
+  - [x] Uses deployment annotation updates to trigger rolling restarts ✅
+  - [x] Comprehensive testing with workflow validation ✅
+
+#### 5.4 STOP/START Functionality ✅ **COMPLETED**
+
+- [x] **Update Service Files** ✅ **COMPLETED**
+  - [x] `src/services/k8s/provisioning.service.js` ✅
+- [x] **Update Controller Files** ✅ **COMPLETED**
+  - [x] `src/controllers/instance.controller.js` ✅
+  - [x] `src/controllers/subscription.controller.js` ✅
+- [x] **Update Route Files** ✅ **COMPLETED**
+  - [x] `src/routes/instance.routes.js` ✅
+  - [x] `src/routes/subscription.routes.js` ✅
+- [x] **Update Validation Files** ✅ **COMPLETED**
+  - [x] `src/validations/instance.validation.js` ✅
+- [x] **Update Database Schema** ✅ **COMPLETED**
+  - [x] `prisma/schema.prisma` ✅
+- [x] **Update Test Files** ✅ **COMPLETED**
+  - [x] `rest/instance.rest` ✅
+  - [x] `rest/subscription.rest` ✅
+- [x] **Features Implementation** ✅ **COMPLETED**
+  - [x] Service pause/resume capabilities using Kubernetes deployment scaling (0↔1 replicas) ✅
+  - [x] Proper status lifecycle management (RUNNING→STOPPING→STOPPED and STOPPED→STARTING→RUNNING) ✅
+  - [x] Dual endpoint strategy for optimal user experience ✅
+  - [x] Data and configuration preservation during stop/start cycle ✅
+  - [x] Database schema enhancement with new status values (RESTARTING, STOPPING, STARTING) ✅
+  - [x] Comprehensive testing with complete workflow validation ✅
+
+#### 5.5 Database Schema Enhancement ✅ **COMPLETED**
+
+- [x] **Update Schema Files** ✅ **COMPLETED**
+  - [x] `prisma/schema.prisma` ✅
+- [x] **Features Implementation** ✅ **COMPLETED**
+  - [x] Enhanced InstanceStatus enum with RESTARTING, STOPPING, and STARTING values ✅
+  - [x] Successfully applied migration with `npx prisma db push` ✅
+  - [x] Enables proper status tracking for all service lifecycle operations ✅
+
+#### 5.6 API Endpoints Added ✅ **COMPLETED**
+
+- [x] **Instance-level endpoints** ✅ **COMPLETED**
+  - [x] `PUT /api/instances/:id/restart` - Restart service instance ✅
+  - [x] `PUT /api/instances/:id/stop` - Stop service instance ✅
+  - [x] `PUT /api/instances/:id/start` - Start service instance ✅
+- [x] **Subscription-level endpoints (user-friendly)** ✅ **COMPLETED**
+  - [x] `POST /api/subscriptions/:id/restart` - Restart subscription service ✅
+  - [x] `POST /api/subscriptions/:id/retry-provisioning` - Retry failed provisioning ✅
+  - [x] `PUT /api/subscriptions/:id/stop` - Stop subscription service ✅
+  - [x] `PUT /api/subscriptions/:id/start` - Start subscription service ✅
+
+---
+
+### **PHASE 6: AUTO-RENEWAL SYSTEM** (Week 7-8)
+
+**Priority: HIGH**
+
+#### 6.1 Billing Job Scheduler
 
 - [ ] **Create Service Files**
   - [ ] `src/services/billing.service.js`
@@ -269,13 +401,13 @@
   - [ ] Configure daily billing checks
   - [ ] Implement retry logic for failed renewals
 
-#### 5.2 Upgrade System
+#### 6.2 Upgrade System Enhancement
 
 - [ ] **Features Implementation**
-  - [ ] Plan upgrade validation
-  - [ ] Prorated billing calculations
-  - [ ] Kubernetes resource updates
-  - [ ] Quota management for upgrades
+  - [ ] Enhanced plan upgrade validation
+  - [ ] Prorated billing improvements
+  - [ ] Kubernetes resource updates optimization
+  - [ ] Advanced quota management
 - [ ] **Rollback Procedures**
   - [ ] Failed upgrade rollback
   - [ ] Credit refund on failures
@@ -283,11 +415,11 @@
 
 ---
 
-### **PHASE 6: ADMIN & ANALYTICS** (Week 7-8)
+### **PHASE 7: ADMIN & ANALYTICS** (Week 8-9)
 
 **Priority: MEDIUM**
 
-#### 6.1 Admin Management
+#### 7.1 Admin Management
 
 - [ ] **Create Controller Files**
   - [ ] `src/controllers/admin/service.controller.js`
@@ -303,17 +435,19 @@
   - [ ] Manual credit adjustments
   - [ ] User management enhancements
 
-#### 6.2 Analytics & Reporting
+#### 7.2 Analytics & Reporting
 
 - [ ] **Features Implementation**
   - [ ] Revenue tracking
   - [ ] Simplified quota utilization reports
   - [ ] User analytics dashboard
   - [ ] Subscription analytics
+  - [ ] Service control usage metrics
 - [ ] **Reporting Endpoints**
   - [ ] `GET /api/admin/analytics/revenue`
   - [ ] `GET /api/admin/analytics/quota` (simplified)
   - [ ] `GET /api/admin/analytics/subscriptions`
+  - [ ] `GET /api/admin/analytics/service-control`
 
 ---
 
@@ -417,16 +551,18 @@ Based on current codebase analysis:
 
 ## 📊 PROGRESS TRACKING
 
-**Overall Progress: 90% Complete** ⬆️ **INCREASED FROM 65%**
+**Overall Progress: 95% Complete** ⬆️ **INCREASED FROM 90%**
 
-- ✅ **Foundation (25%)**: Express app, auth, K8s monitoring, database setup
-- ✅ **Service Catalog (25%)**: Database models ✅, Core services ✅, API endpoints ✅
+- ✅ **Foundation (20%)**: Express app, auth, K8s monitoring, database setup
+- ✅ **Service Catalog (20%)**: Database models ✅, Core services ✅, API endpoints ✅
 - ✅ **Credit System (15%)**: Database models ✅, Core services ✅, Wallet APIs ✅, Midtrans integration ✅
-- ✅ **Subscriptions (20%)**: Database models ✅, Core services ✅, User APIs ✅, Admin APIs ✅
-- ✅ **Admin Features (5%)**: Subscription management ✅, Analytics needed
-- ❌ **Service Provisioning (0%)**: Kubernetes deployment automation needed
+- ✅ **Subscriptions (15%)**: Database models ✅, Core services ✅, User APIs ✅, Admin APIs ✅
+- ✅ **Service Provisioning (15%)**: Kubernetes deployment automation ✅, Instance management ✅, Health monitoring ✅
+- ✅ **Advanced Service Control (10%)**: Real-time log streaming ✅, Retry provisioning ✅, Restart functionality ✅, STOP/START functionality ✅
+- ❌ **Auto-Renewal System (3%)**: Billing automation needed
+- ❌ **Admin & Analytics (2%)**: Management interfaces and reporting needed
 
-**Current Status**: Phase 3 Subscription Management ✅ COMPLETED - Ready for Phase 4 Service Provisioning & Instance Management
+**Current Status**: Phase 5 Advanced Service Control Features ✅ COMPLETED - Ready for Phase 6 Auto-Renewal System
 
 ---
 
@@ -445,5 +581,32 @@ Based on current codebase analysis:
 - [ ] ❌ **PENDING**: Feature not started
 - [~] 🔄 **IN PROGRESS**: Feature partially implemented
 
-**Last Updated**: 2025-08-24 (Phase 3 Subscription Management COMPLETED)
+**Last Updated**: 2025-08-27 (Phase 5 Advanced Service Control Features COMPLETED)
 **Next Review**: Weekly on Mondays
+
+---
+
+## 🎯 CURRENT PROJECT STATUS SUMMARY
+
+### **✅ COMPLETED PHASES (1-5)**
+
+- **Phase 1**: Database & Core Models ✅ **COMPLETED**
+- **Phase 2**: Public Catalog API ✅ **COMPLETED**
+- **Phase 3**: Subscription System ✅ **COMPLETED**
+- **Phase 4**: Kubernetes Integration ✅ **COMPLETED**
+- **Phase 5**: Advanced Service Control Features ✅ **COMPLETED**
+
+### **🔄 NEXT PRIORITIES (Phases 6-7)**
+
+- **Phase 6**: Auto-Renewal System (Billing automation, enhanced upgrades)
+- **Phase 7**: Admin & Analytics (Management interfaces, reporting)
+
+### **📈 KEY ACHIEVEMENTS**
+
+- **Complete PaaS Platform**: Full service catalog with subscription management
+- **Advanced Service Control**: STOP/START/RESTART/RETRY functionality with dual endpoints
+- **Real-time Features**: Socket.IO log streaming and metrics polling
+- **Production-Ready**: Comprehensive error handling, testing, and documentation
+- **Kubernetes Integration**: Automated provisioning, health monitoring, and lifecycle management
+
+**The MinisPod backend now provides a complete PaaS platform with advanced service control capabilities, ready for production deployment with comprehensive subscription management, payment processing, and Kubernetes orchestration.**

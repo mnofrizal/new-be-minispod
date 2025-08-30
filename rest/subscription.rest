@@ -558,7 +558,7 @@ Authorization: Bearer {{authToken}}
 ### ============================================================================
 
 ### Test 1: Restart Subscription Service (Success Case)
-POST {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/restart
+POST {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/restart
 Authorization: Bearer {{authToken}}
 Content-Type: application/json
 
@@ -1034,3 +1034,185 @@ Content-Type: application/json
 # - Show both subscription and instance information
 # - Handle all error scenarios with clear messages
 # - Display estimated time and resource savings for stop operations
+
+### ============================================================================
+### SUBSCRIPTION BILLING INFO ENDPOINT (NEW)
+### ============================================================================
+
+### Test 1: Get Subscription Billing Info for Active Subscription (Success Case)
+GET {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/billing-info
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 2: Get Subscription Billing Info - Non-existent Subscription (should fail)
+GET {{baseUrl}}/subscriptions/clnonexistentsubscription/billing-info
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 3: Get Subscription Billing Info - Without Authentication (should fail)
+GET {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/billing-info
+Content-Type: application/json
+
+### Test 4: Get Subscription Billing Info - Invalid JWT (should fail)
+GET {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/billing-info
+Authorization: Bearer invalid_jwt_token
+Content-Type: application/json
+
+### Test 5: Get Subscription Billing Info - Invalid Subscription ID Format (should fail)
+GET {{baseUrl}}/subscriptions/invalid_id_format/billing-info
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 6: Get Subscription Billing Info - Cancelled Subscription (should fail)
+# Note: Use subscription ID that has been cancelled
+GET {{baseUrl}}/subscriptions/cancelled-subscription-id/billing-info
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 7: Get Subscription Billing Info - Subscription Belonging to Another User (should fail)
+# Note: Use different user's subscription ID
+GET {{baseUrl}}/subscriptions/other-user-subscription-id/billing-info
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### ============================================================================
+### SUBSCRIPTION BILLING INFO WORKFLOW TESTS
+### ============================================================================
+
+### Workflow Test 1: Check Current Subscription Details
+GET {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 2: Get Subscription Billing Info with Available Upgrades
+GET {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/billing-info
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Workflow Test 3: Compare with Catalog Plans (for verification)
+GET {{baseUrl}}/catalog/services/cmepx3ggj000evviidqhqhqhq/plans
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 4: Check User Credit Balance (for upgrade feasibility)
+GET {{baseUrl}}/wallet/info
+Authorization: Bearer {{authToken}}
+
+### ============================================================================
+### SUBSCRIPTION BILLING INFO RESPONSE STRUCTURE VALIDATION
+### ============================================================================
+
+### Test Expected Billing Info Response Structure
+GET {{baseUrl}}/subscriptions/cmeslquvy0005vv4auasdgjzh/billing-info
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+# Expected Response Structure:
+# {
+#   "success": true,
+#   "statusCode": 200,
+#   "data": {
+#     "currentPlan": {
+#       "id": "cmepx3ggl000gvviigaab5b34",
+#       "name": "Basic",
+#       "planType": "BASIC",
+#       "monthlyPrice": 50000,
+#       "resources": {
+#         "cpuMilli": 500,
+#         "memoryMb": 512,
+#         "storageGb": 1
+#       },
+#       "features": ["Feature A", "Feature B"]
+#     },
+#     "availableUpgrades": [
+#       {
+#         "id": "cmepx3ggo000ivviixctv7kjj",
+#         "name": "Pro",
+#         "planType": "PRO",
+#         "monthlyPrice": 100000,
+#         "upgradeCost": 25000,
+#         "proratedDays": 15,
+#         "resources": {
+#           "cpuMilli": 1000,
+#           "memoryMb": 1024,
+#           "storageGb": 5
+#         },
+#         "quotaAvailable": true,
+#         "canUpgrade": true
+#       },
+#       {
+#         "id": "cmepx3ggr000kvviiwxyz1234",
+#         "name": "Premium",
+#         "planType": "PREMIUM",
+#         "monthlyPrice": 200000,
+#         "upgradeCost": 75000,
+#         "proratedDays": 15,
+#         "resources": {
+#           "cpuMilli": 2000,
+#           "memoryMb": 2048,
+#           "storageGb": 10
+#         },
+#         "quotaAvailable": false,
+#         "canUpgrade": false
+#       }
+#     ],
+#     "userInfo": {
+#       "creditBalance": 150000,
+#       "hasUpgradeOptions": true,
+#       "canUpgradeAny": true
+#     },
+#     "billingInfo": {
+#       "daysRemaining": 15,
+#       "nextBillingDate": "2025-09-15T00:00:00.000Z",
+#       "proratedRatio": 0.5,
+#       "autoRenew": true,
+#       "monthlyPrice": 50000,
+#       "lastChargeAmount": 50000,
+#       "nextChargeAmount": 50000
+#     },
+#     "service": {
+#       "id": "cmepx3ggj000evviidqhqhqhq",
+#       "name": "N8N Automation",
+#       "slug": "n8n-automation"
+#     }
+#   },
+#   "message": "Available upgrade plans retrieved successfully",
+#   "timestamp": "2025-08-30T02:59:00.123Z"
+# }
+
+### ============================================================================
+### SUBSCRIPTION BILLING INFO FUNCTIONALITY NOTES
+### ============================================================================
+
+# Subscription Billing Info Business Rules:
+# - Only shows plans from the same service (N8N to N8N, not N8N to Ghost)
+# - Only shows higher tier plans (BASIC → PRO → PREMIUM → ENTERPRISE)
+# - Calculates prorated upgrade cost based on remaining billing days
+# - Checks quota availability for each plan
+# - Validates user has sufficient credit for each upgrade option
+# - Returns detailed information for upgrade decision making
+# - Only works for ACTIVE subscriptions
+# - User can only access their own subscription upgrade options
+
+# Upgrade Cost Calculation:
+# upgradeCost = (newPlanPrice - currentPlanPrice) * (daysRemaining / daysInMonth)
+# - Prorated based on remaining days in current billing cycle
+# - Rounded to nearest IDR (no decimals)
+# - Positive value indicates additional cost
+# - Zero cost for same-price plans (rare edge case)
+
+# Frontend Implementation Notes:
+# - Display current plan prominently with resources and features
+# - Show upgrade options in order of price/tier
+# - Highlight popular plans with visual indicators
+# - Display upgrade cost clearly with prorated explanation
+# - Show "Upgrade" button only for available plans (canUpgrade: true)
+# - Display reasons for unavailable plans (quota full, insufficient credit)
+# - Include resource comparison between current and upgrade plans
+# - Show billing information and next billing date
+# - Handle all error scenarios with clear messages
+# - Refresh data when user's credit balance changes
+
+# Integration with Other Endpoints:
+# - Use with GET /api/subscriptions/:id for current subscription details
+# - Use with GET /api/wallet/info for current credit balance
+# - Use with PUT /api/subscriptions/:id/upgrade for actual upgrade
+# - Use with GET /api/catalog/services/:id/plans for complete plan catalog

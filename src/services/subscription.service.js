@@ -1047,6 +1047,194 @@ const retryProvisioning = async (subscriptionId, userId) => {
   });
 };
 
+/**
+ * Get subscription billing info with available upgrade plans
+ * @param {string} subscriptionId - Subscription ID
+ * @param {string} userId - User ID (for authorization)
+ * @returns {Promise<Object>} Billing info with available upgrade plans
+ */
+const getAvailableUpgrades = async (subscriptionId, userId) => {
+  // Get current subscription with all necessary details
+  const subscription = await prisma.subscription.findFirst({
+    where: {
+      id: subscriptionId,
+      userId, // Ensure user can only access their own subscriptions
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          creditBalance: true,
+        },
+      },
+      service: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+        },
+      },
+      plan: {
+        select: {
+          id: true,
+          name: true,
+          planType: true,
+          monthlyPrice: true,
+          cpuMilli: true,
+          memoryMb: true,
+          storageGb: true,
+          features: true,
+        },
+      },
+    },
+  });
+
+  if (!subscription) {
+    throw new Error("Subscription not found");
+  }
+
+  if (subscription.status !== "ACTIVE") {
+    throw new Error("Can only get upgrade options for active subscriptions");
+  }
+
+  // Get all plans for the same service
+  const allPlans = await prisma.servicePlan.findMany({
+    where: {
+      serviceId: subscription.serviceId,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      name: true,
+      planType: true,
+      description: true,
+      monthlyPrice: true,
+      cpuMilli: true,
+      memoryMb: true,
+      storageGb: true,
+      bandwidth: true,
+      features: true,
+      totalQuota: true,
+      usedQuota: true,
+      maxInstancesPerUser: true,
+      maxDomains: true,
+      isPopular: true,
+    },
+    orderBy: {
+      monthlyPrice: "asc",
+    },
+  });
+
+  // Define plan hierarchy for upgrade validation
+  const planTypeOrder = {
+    FREE: 0,
+    BASIC: 1,
+    PRO: 2,
+    PREMIUM: 3,
+    ENTERPRISE: 4,
+  };
+
+  const currentTier = planTypeOrder[subscription.plan.planType];
+
+  // Filter plans that are higher tier than current plan
+  const higherTierPlans = allPlans.filter((plan) => {
+    const planTier = planTypeOrder[plan.planType];
+    return planTier > currentTier;
+  });
+
+  // Calculate billing information
+  const now = new Date();
+  const daysInMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    0
+  ).getDate();
+  const daysRemaining = Math.max(
+    0,
+    Math.ceil((subscription.endDate - now) / (1000 * 60 * 60 * 24))
+  );
+  const proratedRatio = Math.max(0, daysRemaining) / daysInMonth;
+
+  // Process each upgrade option
+  const availableUpgrades = await Promise.all(
+    higherTierPlans.map(async (plan) => {
+      // Calculate upgrade cost
+      const upgradeCost = Math.round(
+        (plan.monthlyPrice - subscription.plan.monthlyPrice) * proratedRatio
+      );
+
+      // Check quota availability
+      const quotaCheck = await quotaService.checkQuotaAvailability(plan.id);
+
+      // Determine if user can upgrade
+      const hasEnoughCredit = subscription.user.creditBalance >= upgradeCost;
+      const canUpgrade = quotaCheck.isAvailable && hasEnoughCredit;
+
+      // Determine reason if can't upgrade
+      let reason = null;
+      if (!quotaCheck.isAvailable) {
+        reason = "Plan at full capacity";
+      } else if (!hasEnoughCredit) {
+        reason = `Insufficient credit. Need ${
+          upgradeCost - subscription.user.creditBalance
+        } IDR more`;
+      }
+
+      return {
+        id: plan.id,
+        name: plan.name,
+        planType: plan.planType,
+        monthlyPrice: plan.monthlyPrice,
+        upgradeCost,
+        proratedDays: daysRemaining,
+        resources: {
+          cpuMilli: plan.cpuMilli,
+          memoryMb: plan.memoryMb,
+          storageGb: plan.storageGb,
+        },
+        quotaAvailable: quotaCheck.isAvailable,
+        canUpgrade,
+      };
+    })
+  );
+
+  return {
+    currentPlan: {
+      id: subscription.plan.id,
+      name: subscription.plan.name,
+      planType: subscription.plan.planType,
+      monthlyPrice: subscription.plan.monthlyPrice,
+      resources: {
+        cpuMilli: subscription.plan.cpuMilli,
+        memoryMb: subscription.plan.memoryMb,
+        storageGb: subscription.plan.storageGb,
+      },
+      features: subscription.plan.features,
+    },
+    availableUpgrades,
+    userInfo: {
+      creditBalance: subscription.user.creditBalance,
+      hasUpgradeOptions: availableUpgrades.length > 0,
+      canUpgradeAny: availableUpgrades.some((plan) => plan.canUpgrade),
+    },
+    billingInfo: {
+      daysRemaining,
+      nextBillingDate: subscription.endDate,
+      proratedRatio: Math.round(proratedRatio * 100) / 100, // Round to 2 decimal places
+      autoRenew: subscription.autoRenew,
+      monthlyPrice: subscription.monthlyPrice,
+      lastChargeAmount: subscription.lastChargeAmount,
+      nextChargeAmount: subscription.autoRenew ? subscription.monthlyPrice : 0,
+    },
+    service: {
+      id: subscription.service.id,
+      name: subscription.service.name,
+      slug: subscription.service.slug,
+    },
+  };
+};
+
 export default {
   createSubscription,
   upgradeSubscription,
@@ -1055,4 +1243,5 @@ export default {
   getSubscriptionDetails,
   validateSubscription,
   retryProvisioning,
+  getAvailableUpgrades,
 };

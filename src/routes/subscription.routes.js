@@ -51,6 +51,13 @@ router.get(
   subscriptionController.getSubscriptionMetrics
 );
 
+// Get subscription billing info with available upgrade plans
+router.get(
+  "/:subscriptionId/billing-info",
+  validate({ params: subscriptionIdValidation }),
+  subscriptionController.getAvailableUpgrades
+);
+
 // Upgrade subscription
 router.put(
   "/:subscriptionId/upgrade",
