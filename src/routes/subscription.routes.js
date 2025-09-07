@@ -9,6 +9,7 @@ import {
   upgradeSubscriptionValidation,
   cancelSubscriptionValidation,
   validateSubscriptionValidation,
+  toggleAutoRenewValidation,
 } from "../validations/subscription.validation.js";
 
 const router = express.Router();
@@ -94,6 +95,16 @@ router.put(
   "/:subscriptionId/start",
   validate({ params: subscriptionIdValidation }),
   subscriptionController.startSubscription
+);
+
+// Toggle auto-renew setting
+router.put(
+  "/:subscriptionId/auto-renew",
+  validate({
+    params: subscriptionIdValidation,
+    body: toggleAutoRenewValidation,
+  }),
+  subscriptionController.toggleAutoRenew
 );
 
 // Cancel subscription

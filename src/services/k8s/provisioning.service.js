@@ -298,7 +298,7 @@ const provisionKubernetesResources = async (
  * @param {string} instanceId - Service instance ID
  * @returns {Promise<Object>} Termination result
  */
-const terminateServiceInstance = async (instanceId) => {
+const terminateServiceInstance = async (instanceId, userId = null) => {
   return await prisma.$transaction(async (tx) => {
     try {
       // Get instance details
@@ -316,6 +316,11 @@ const terminateServiceInstance = async (instanceId) => {
 
       if (!instance) {
         throw new Error("Service instance not found");
+      }
+
+      // Verify instance belongs to user if userId is provided
+      if (userId && instance.subscription.user.id !== userId) {
+        throw new Error("Access denied to this service instance");
       }
 
       if (instance.status === "TERMINATED") {
@@ -363,12 +368,17 @@ const terminateServiceInstance = async (instanceId) => {
 /**
  * Update service instance resources (for upgrades)
  * @param {string} instanceId - Service instance ID
- * @param {Object} newPlan - New service plan
+ * @param {Object} newPlan - New service plan object or plan ID
+ * @param {string} userId - User ID for authorization (optional for admin calls)
  * @returns {Promise<Object>} Update result
  */
-const updateServiceInstance = async (instanceId, newPlan) => {
+const updateServiceInstance = async (
+  instanceId,
+  newPlanData,
+  userId = null
+) => {
   try {
-    // Get instance details
+    // Get instance details with user verification
     const instance = await prisma.serviceInstance.findUnique({
       where: { id: instanceId },
       include: {
@@ -385,8 +395,44 @@ const updateServiceInstance = async (instanceId, newPlan) => {
       throw new Error("Service instance not found");
     }
 
+    // Verify instance belongs to user (skip for admin calls when userId is null)
+    if (userId && instance.subscription.user.id !== userId) {
+      throw new Error("Access denied to this service instance");
+    }
+
     if (instance.status !== "RUNNING") {
       throw new Error("Can only update running instances");
+    }
+
+    // Handle both plan object and plan ID
+    let newPlan;
+    if (typeof newPlanData === "string") {
+      // newPlanData is a plan ID
+      newPlan = await prisma.servicePlan.findUnique({
+        where: { id: newPlanData, isActive: true },
+        select: {
+          id: true,
+          name: true,
+          planType: true,
+          cpuMilli: true,
+          memoryMb: true,
+          storageGb: true,
+        },
+      });
+
+      if (!newPlan) {
+        throw new Error("Service plan not found");
+      }
+    } else {
+      // newPlanData is already a plan object (from admin upgrade)
+      newPlan = {
+        id: newPlanData.id,
+        name: newPlanData.name,
+        planType: newPlanData.planType,
+        cpuMilli: newPlanData.cpuMilli,
+        memoryMb: newPlanData.memoryMb,
+        storageGb: newPlanData.storageGb,
+      };
     }
 
     if (!isK8sAvailable()) {
@@ -497,7 +543,7 @@ const updateServiceInstance = async (instanceId, newPlan) => {
  * @param {string} instanceId - Service instance ID
  * @returns {Promise<Object>} Instance status
  */
-const getInstanceStatus = async (instanceId) => {
+const getInstanceStatus = async (instanceId, userId = null) => {
   try {
     const instance = await prisma.serviceInstance.findUnique({
       where: { id: instanceId },
@@ -506,7 +552,7 @@ const getInstanceStatus = async (instanceId) => {
           include: {
             service: { select: { name: true, slug: true } },
             plan: { select: { name: true, planType: true } },
-            user: { select: { name: true, email: true } },
+            user: { select: { id: true, name: true, email: true } },
           },
         },
       },
@@ -514,6 +560,11 @@ const getInstanceStatus = async (instanceId) => {
 
     if (!instance) {
       throw new Error("Service instance not found");
+    }
+
+    // Verify instance belongs to user if userId is provided
+    if (userId && instance.subscription.user.id !== userId) {
+      throw new Error("Access denied to this service instance");
     }
 
     let kubernetesStatus = null;
@@ -793,7 +844,7 @@ const refreshInstancePodName = async (instanceId) => {
  * @param {string} instanceId - Service instance ID
  * @returns {Promise<Object>} Restart result
  */
-const restartServiceInstance = async (instanceId) => {
+const restartServiceInstance = async (instanceId, userId = null) => {
   try {
     // Get instance details
     const instance = await prisma.serviceInstance.findUnique({
@@ -811,6 +862,11 @@ const restartServiceInstance = async (instanceId) => {
 
     if (!instance) {
       throw new Error("Service instance not found");
+    }
+
+    // Verify instance belongs to user if userId is provided
+    if (userId && instance.subscription.user.id !== userId) {
+      throw new Error("Access denied to this service instance");
     }
 
     if (instance.status !== "RUNNING") {
@@ -1059,7 +1115,7 @@ const performKubernetesRollingRestart = async (instance) => {
  * @param {string} instanceId - Service instance ID
  * @returns {Promise<Object>} Stop result
  */
-const stopServiceInstance = async (instanceId) => {
+const stopServiceInstance = async (instanceId, userId = null) => {
   try {
     // Get instance details
     const instance = await prisma.serviceInstance.findUnique({
@@ -1077,6 +1133,11 @@ const stopServiceInstance = async (instanceId) => {
 
     if (!instance) {
       throw new Error("Service instance not found");
+    }
+
+    // Verify instance belongs to user if userId is provided
+    if (userId && instance.subscription.user.id !== userId) {
+      throw new Error("Access denied to this service instance");
     }
 
     if (instance.status !== "RUNNING") {
@@ -1219,7 +1280,7 @@ const stopServiceInstance = async (instanceId) => {
  * @param {string} instanceId - Service instance ID
  * @returns {Promise<Object>} Start result
  */
-const startServiceInstance = async (instanceId) => {
+const startServiceInstance = async (instanceId, userId = null) => {
   try {
     // Get instance details
     const instance = await prisma.serviceInstance.findUnique({
@@ -1237,6 +1298,11 @@ const startServiceInstance = async (instanceId) => {
 
     if (!instance) {
       throw new Error("Service instance not found");
+    }
+
+    // Verify instance belongs to user if userId is provided
+    if (userId && instance.subscription.user.id !== userId) {
+      throw new Error("Access denied to this service instance");
     }
 
     if (instance.status !== "STOPPED") {
@@ -1394,6 +1460,61 @@ const startServiceInstance = async (instanceId) => {
   }
 };
 
+/**
+ * Get service instance logs (placeholder implementation)
+ * @param {string} instanceId - Service instance ID
+ * @param {string} userId - User ID for authorization
+ * @param {Object} options - Log options
+ * @returns {Promise<Object>} Log result
+ */
+const getInstanceLogs = async (instanceId, userId, options = {}) => {
+  try {
+    // Get instance details with user verification
+    const instance = await prisma.serviceInstance.findUnique({
+      where: { id: instanceId },
+      include: {
+        subscription: {
+          include: {
+            user: { select: { id: true } },
+          },
+        },
+      },
+    });
+
+    if (!instance) {
+      throw new Error("Service instance not found");
+    }
+
+    // Verify instance belongs to user
+    if (instance.subscription.user.id !== userId) {
+      throw new Error("Access denied to this service instance");
+    }
+
+    const { lines = 100, follow = false } = options;
+
+    // For now, return a placeholder response
+    // In a full implementation, this would fetch logs from Kubernetes
+    return {
+      instanceId,
+      logs: [
+        {
+          timestamp: new Date().toISOString(),
+          level: "info",
+          message: "Log retrieval feature coming soon",
+        },
+      ],
+      options: {
+        lines: parseInt(lines),
+        follow: follow === "true",
+      },
+      message: "Log retrieval feature is under development",
+    };
+  } catch (error) {
+    logger.error("Get instance logs failed:", error);
+    throw error;
+  }
+};
+
 export default {
   provisionServiceInstance,
   terminateServiceInstance,
@@ -1404,4 +1525,5 @@ export default {
   restartServiceInstance,
   stopServiceInstance,
   startServiceInstance,
+  getInstanceLogs,
 };

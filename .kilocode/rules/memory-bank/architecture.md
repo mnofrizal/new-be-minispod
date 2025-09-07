@@ -44,18 +44,27 @@ The backend follows a **layered architecture** pattern with clear separation of 
 
 ### Wallet Management System
 
-- [`src/controllers/wallet.controller.js`](src/controllers/wallet.controller.js:1) - Complete wallet management with 9 endpoints
-- [`src/routes/wallet.routes.js`](src/routes/wallet.routes.js:1) - JWT-authenticated wallet routes
+- [`src/controllers/wallet.controller.js`](src/controllers/wallet.controller.js:1) - Complete wallet management with 12 endpoints (added coupon functionality)
+- [`src/routes/wallet.routes.js`](src/routes/wallet.routes.js:1) - JWT-authenticated wallet routes with coupon endpoints
 - [`src/validations/wallet.validation.js`](src/validations/wallet.validation.js:1) - Comprehensive Joi validation schemas
+
+### Coupon/Code Redemption System
+
+- [`src/controllers/admin/coupon.controller.js`](src/controllers/admin/coupon.controller.js:1) - Admin coupon management with 7 endpoints
+- [`src/routes/admin/coupon.routes.js`](src/routes/admin/coupon.routes.js:1) - ADMINISTRATOR role-protected coupon routes
+- [`src/services/coupon.service.js`](src/services/coupon.service.js:1) - Complete coupon business logic with 3 redemption types
+- [`src/validations/coupon.validation.js`](src/validations/coupon.validation.js:1) - Comprehensive coupon validation schemas
+- [`rest/coupon.rest`](rest/coupon.rest:1) - Complete test suite with 35 test scenarios
+- [`prisma/seed-coupons.js`](prisma/seed-coupons.js:1) - Sample coupon data for testing
 
 ### Subscription Management System
 
-- [`src/controllers/subscription.controller.js`](src/controllers/subscription.controller.js:1) - User subscription management with 6 endpoints
-- [`src/controllers/admin/subscription.controller.js`](src/controllers/admin/subscription.controller.js:1) - Admin subscription management with 7 endpoints
+- [`src/controllers/subscription.controller.js`](src/controllers/subscription.controller.js:1) - User subscription management with 7 endpoints (added auto-renew toggle)
+- [`src/controllers/admin/subscription.controller.js`](src/controllers/admin/subscription.controller.js:1) - Admin subscription management with 9 endpoints (added update endpoint)
 - [`src/routes/subscription.routes.js`](src/routes/subscription.routes.js:1) - JWT-authenticated user subscription routes
 - [`src/routes/admin/subscription.routes.js`](src/routes/admin/subscription.routes.js:1) - ADMINISTRATOR role-protected admin routes
-- [`src/validations/subscription.validation.js`](src/validations/subscription.validation.js:1) - User subscription validation schemas
-- [`src/validations/admin/subscription.validation.js`](src/validations/admin/subscription.validation.js:1) - Admin subscription validation schemas
+- [`src/validations/subscription.validation.js`](src/validations/subscription.validation.js:1) - User subscription validation schemas (added auto-renew validation)
+- [`src/validations/admin/subscription.validation.js`](src/validations/admin/subscription.validation.js:1) - Admin subscription validation schemas (added update validation)
 
 ### Payment Integration
 
@@ -78,9 +87,29 @@ The backend follows a **layered architecture** pattern with clear separation of 
 - [`src/services/k8s/health.service.js`](src/services/k8s/health.service.js:1) - Real-time service health monitoring
 - [`src/controllers/admin/health.controller.js`](src/controllers/admin/health.controller.js:1) - Admin health monitoring endpoints
 
+### Auto-Renewal & Billing System
+
+- [`src/services/billing.service.js`](src/services/billing.service.js:1) - Complete auto-renewal logic with grace period management
+- [`src/services/notification.service.js`](src/services/notification.service.js:1) - Comprehensive notification system for billing alerts
+- [`src/jobs/auto-renewal.job.js`](src/jobs/auto-renewal.job.js:1) - Scheduled job management with 5 cron jobs
+- [`src/controllers/admin/billing.controller.js`](src/controllers/admin/billing.controller.js:1) - Admin billing management with 9 endpoints
+- [`src/routes/admin/billing.routes.js`](src/routes/admin/billing.routes.js:1) - Admin billing routes with environment-based validation
+
+### Support Ticket System
+
+- [`src/controllers/ticket.controller.js`](src/controllers/ticket.controller.js:1) - User ticket management with 7 endpoints (create, list, view, message, close, stats, download)
+- [`src/controllers/admin/ticket.controller.js`](src/controllers/admin/ticket.controller.js:1) - Admin ticket management with 8 endpoints (full lifecycle management and bulk operations)
+- [`src/routes/ticket.routes.js`](src/routes/ticket.routes.js:1) - JWT-authenticated user ticket routes with multipart/form-data support
+- [`src/routes/admin/ticket.routes.js`](src/routes/admin/ticket.routes.js:1) - ADMINISTRATOR role-protected admin ticket routes
+- [`src/services/ticket.service.js`](src/services/ticket.service.js:1) - Complete ticket business logic with auto-increment numbering and image handling
+- [`src/validations/ticket.validation.js`](src/validations/ticket.validation.js:1) - Comprehensive ticket validation schemas with file upload validation
+- [`src/utils/upload.js`](src/utils/upload.js:1) - Multer configuration for image uploads with validation and storage management
+- [`rest/ticket.rest`](rest/ticket.rest:1) - Complete user ticket test suite with 35+ test scenarios
+- [`rest/admin/ticket.rest`](rest/admin/ticket.rest:1) - Complete admin ticket test suite with 45+ test scenarios
+
 ### Database Layer
 
-- [`prisma/schema.prisma`](prisma/schema.prisma:1) - Complete database schema with service catalog models
+- [`prisma/schema.prisma`](prisma/schema.prisma:1) - Complete database schema with service catalog and support ticket models
 - [`src/utils/prisma.js`](src/utils/prisma.js:1) - Prisma client instance
 - [`prisma/seed.js`](prisma/seed.js:1) - Comprehensive seed data with service catalog
 
@@ -117,6 +146,8 @@ The backend follows a **layered architecture** pattern with clear separation of 
 - **Cascade Deletion**: Proper relationship management across all models
 - **Currency Storage**: Int fields for IDR to avoid decimal precision issues
 - **Custom Transaction IDs**: TXMP-XXX format with PostgreSQL sequence auto-increment starting from 101
+- **Support Ticket Models**: Ticket, TicketMessage, and TicketAttachment models with auto-increment ticket numbers
+- **Three-Status Workflow**: OPEN → IN_PROGRESS → CLOSED with automatic status transitions
 
 ### Kubernetes Integration
 
@@ -131,14 +162,44 @@ The backend follows a **layered architecture** pattern with clear separation of 
 - **Deployment Readiness**: Industry best-practice readiness checks using deployment status conditions
 - **Resource Cleanup**: Automatic termination and cleanup on subscription cancellation
 
+### Auto-Renewal System Architecture
+
+- **Scheduled Jobs**: 5 cron jobs with configurable schedules via environment variables
+- **Grace Period Management**: Configurable grace periods (1-30 days) with enable/disable option
+- **Notification System**: 6 notification types for comprehensive user communication
+- **Environment Configuration**: Complete control via .env variables for all billing settings
+- **Rollback Procedures**: Complete failure recovery with state restoration for upgrades
+- **Admin Controls**: Comprehensive admin tools for billing management and subscription editing
+
 ### Credit-Based Billing System
 
 - **Credit Management**: Real-time balance tracking with transaction history
 - **Payment Integration**: Midtrans gateway with multiple payment methods (Bank Transfer, E-Wallet, Credit Card, QRIS)
-- **Transaction Types**: TOP_UP, SUBSCRIPTION, UPGRADE, REFUND, ADMIN_ADJUSTMENT
+- **Transaction Types**: TOP_UP, SUBSCRIPTION, UPGRADE, REFUND, ADMIN_ADJUSTMENT, COUPON_REDEMPTION
 - **Automated Processing**: Webhook handling for payment notifications
 - **Audit Trail**: Complete transaction logging with balance snapshots and custom transaction IDs
 - **Custom ID Format**: TXMP-XXX sequential numbering with PostgreSQL sequence management
+
+### Coupon/Code Redemption System Architecture
+
+- **Three Coupon Types**: CREDIT_TOPUP (billing page), SUBSCRIPTION_DISCOUNT (checkout), FREE_SERVICE (free subscriptions)
+- **Flexible Discounts**: Fixed amount and percentage discounts with service-specific restrictions
+- **Usage Controls**: Per-user and total usage limits with expiry date management
+- **Transaction Safety**: All operations protected by database transactions with race condition handling
+- **Admin Management**: Complete coupon lifecycle with creation, monitoring, and analytics
+- **Audit Trail**: Full redemption tracking with metadata and transaction linking
+- **Error Handling**: Consistent error messages and graceful constraint violation handling
+
+### Support Ticket System Architecture
+
+- **Three-Status Workflow**: OPEN (new tickets) → IN_PROGRESS (when admin responds) → CLOSED (final state)
+- **Auto-Increment Tickets**: PostgreSQL sequence-based ticket numbering with formatted display (#001, #002, etc.)
+- **Image Upload Support**: Multi-file image attachments with comprehensive validation (JPEG, PNG, GIF, WebP, max 5MB each, 5 files per request)
+- **User Self-Service**: Users can create tickets, add messages with attachments, and close their own tickets (no reopen capability)
+- **Admin Management**: Full admin control with bulk operations, comprehensive statistics, and complete ticket lifecycle management
+- **Automatic Status Management**: Tickets automatically change to IN_PROGRESS when admin responds
+- **File Storage**: Secure file storage with UUID-based naming and access control
+- **Comprehensive Testing**: Complete REST test suites for both user and admin functionality
 
 ### Simplified Quota Management
 
@@ -155,6 +216,15 @@ The backend follows a **layered architecture** pattern with clear separation of 
 - **Validation**: Joi schemas for request validation
 - **Business Logic Separation**: Clean service layer architecture with modern const-based patterns
 - **Architecture Modernization**: Consistent const-based function patterns across all core services
+
+### Auto-Renewal System Design
+
+- **Scheduled Processing**: Daily auto-renewal at 2:00 AM with configurable cron schedules
+- **Grace Period Logic**: Configurable grace periods with immediate suspension option
+- **Notification Pipeline**: Proactive notifications (low credit warnings, grace period reminders)
+- **Admin Interface**: Complete billing management with manual job execution capabilities
+- **Environment Control**: All settings configurable via .env variables
+- **Rollback System**: Complete failure recovery for upgrade operations
 
 ## Component Relationships
 
@@ -197,6 +267,58 @@ The backend follows a **layered architecture** pattern with clear separation of 
 4. Webhook notification → [`midtrans.service.js`](src/services/payment/midtrans.service.js:183) → `handleNotification()`
 5. Credit added → Direct database transaction with atomic balance update
 6. Transaction status updated → COMPLETED with proper balance tracking
+
+### Coupon Redemption Flow
+
+1. **Credit Top-up Coupon (Billing Page)**:
+
+   - User validates coupon → [`wallet.controller.js`](src/controllers/wallet.controller.js:1) → `validateCoupon()`
+   - User redeems coupon → [`wallet.controller.js`](src/controllers/wallet.controller.js:1) → `redeemCoupon()`
+   - Controller calls → [`coupon.service.js`](src/services/coupon.service.js:135) → `redeemCreditTopupCoupon()`
+   - Credit added → [`credit.service.js`](src/services/credit.service.js:121) → `addCredit()`
+   - Transaction created → COUPON_REDEMPTION type with audit trail
+
+2. **Subscription Discount Coupon (Checkout Page)**:
+
+   - User creates subscription → [`subscription.controller.js`](src/controllers/subscription.controller.js:87) → `createSubscription()`
+   - Coupon validation → [`coupon.service.js`](src/services/coupon.service.js:233) → `calculateSubscriptionDiscount()`
+   - Subscription created → [`subscription.service.js`](src/services/subscription.service.js:17) → `createSubscription()` with discount
+   - Coupon applied → [`coupon.service.js`](src/services/coupon.service.js:308) → `applySubscriptionDiscount()`
+   - Redemption record → Database with subscription link
+
+3. **Free Service Coupon**:
+   - User creates subscription → [`subscription.controller.js`](src/controllers/subscription.controller.js:87) → `createSubscription()`
+   - Free service coupon → [`coupon.service.js`](src/services/coupon.service.js:377) → `redeemFreeServiceCoupon()`
+   - Subscription created → Zero cost with coupon audit trail
+   - Service provisioned → Normal Kubernetes deployment flow
+
+### Support Ticket Flow
+
+1. **User Creates Ticket**:
+
+   - User creates ticket → [`ticket.controller.js`](src/controllers/ticket.controller.js:1) → `createTicket()`
+   - Controller calls → [`ticket.service.js`](src/services/ticket.service.js:1) → `createTicket()`
+   - Database transaction → Ticket created with auto-increment number
+   - File attachments → Stored securely with validation
+
+2. **Admin Responds to Ticket**:
+
+   - Admin adds message → [`admin/ticket.controller.js`](src/controllers/admin/ticket.controller.js:1) → `addMessage()`
+   - Controller calls → [`ticket.service.js`](src/services/ticket.service.js:1) → `addMessageToTicket()` with `isAdmin=true`
+   - Automatic status change → OPEN → IN_PROGRESS when admin responds
+   - Message stored → Database with admin flag and attachments
+
+3. **User Self-Service Close**:
+
+   - User closes ticket → [`ticket.controller.js`](src/controllers/ticket.controller.js:1) → `closeTicket()`
+   - Controller calls → [`ticket.service.js`](src/services/ticket.service.js:1) → `closeTicketByUser()`
+   - Status updated → CLOSED (no reopen capability for users)
+   - Audit trail → Complete logging of closure action
+
+4. **Admin Management**:
+   - Admin bulk operations → [`admin/ticket.controller.js`](src/controllers/admin/ticket.controller.js:1) → `bulkCloseTickets()`
+   - Admin statistics → [`admin/ticket.controller.js`](src/controllers/admin/ticket.controller.js:1) → `getTicketStats()`
+   - Complete lifecycle control → Close, reopen, bulk operations with comprehensive management
 
 ### Service Provisioning Flow
 
@@ -266,6 +388,35 @@ Catalog Routes (to be implemented) → Catalog Controller (to be implemented) �
 
 [`k8s.routes.js`] → [`k8s.controller.js`] → [`k8s.service.js`] → [`kubernetes.js`](src/config/kubernetes.js:46) → K8s API
 
+### Auto-Renewal Processing Flow
+
+1. Scheduled job triggers → [`auto-renewal.job.js`](src/jobs/auto-renewal.job.js:1) → `processDailyRenewals()`
+2. Billing service → [`billing.service.js`](src/services/billing.service.js:24) → `processAutoRenewals()`
+3. Credit validation → [`credit.service.js`](src/services/credit.service.js:25) → `deductCredit()`
+4. Success → Subscription updated → Notification sent
+5. Failure → Grace period set → Notification sent → Daily reminders
+
+### Grace Period Management Flow
+
+1. Renewal fails → [`billing.service.js`](src/services/billing.service.js:199) → `setGracePeriod()`
+2. Daily processing → [`auto-renewal.job.js`](src/jobs/auto-renewal.job.js:1) → `processGracePeriod()`
+3. Grace period expired → Check credit → Suspend or renew
+4. Notifications → [`notification.service.js`](src/services/notification.service.js:1) → Various notification types
+
+### Admin Billing Management Flow
+
+1. Admin requests → [`admin/billing.routes.js`](src/routes/admin/billing.routes.js:1) → Admin billing controller
+2. Controller calls → [`billing.service.js`](src/services/billing.service.js:1) → Billing operations
+3. Manual job execution → [`auto-renewal.job.js`](src/jobs/auto-renewal.job.js:1) → Specific job functions
+4. Statistics → Database aggregation → Formatted response
+
+### Support Ticket Management Flow
+
+1. User ticket creation → [`ticket.routes.js`](src/routes/ticket.routes.js:1) → [`ticket.controller.js`](src/controllers/ticket.controller.js:1) → [`ticket.service.js`](src/services/ticket.service.js:1) → Database with auto-increment
+2. Admin ticket management → [`admin/ticket.routes.js`](src/routes/admin/ticket.routes.js:1) → [`admin/ticket.controller.js`](src/controllers/admin/ticket.controller.js:1) → [`ticket.service.js`](src/services/ticket.service.js:1) → Complete lifecycle control
+3. File upload handling → [`upload.js`](src/utils/upload.js:1) → Multer validation → Secure storage → Database attachment records
+4. Status transitions → Automatic IN_PROGRESS when admin responds → Manual CLOSED by user or admin
+
 ## Kubernetes Endpoints Architecture
 
 ### Resource Monitoring Endpoints
@@ -295,3 +446,25 @@ All K8s endpoints follow the pattern: `GET /api/admin/k8s/{resource}` with admin
 - [`rest/instance.rest`](rest/instance.rest:1) - Service instance management testing
 - [`rest/admin/health.rest`](rest/admin/health.rest:1) - Health monitoring endpoint testing
 - [`rest/end-to-end-test.rest`](rest/end-to-end-test.rest:1) - Complete subscription-to-deployment workflow testing
+- [`rest/admin/billing.rest`](rest/admin/billing.rest:1) - Auto-renewal system testing with 25 comprehensive test scenarios
+- [`rest/ticket.rest`](rest/ticket.rest:1) - User ticket system testing with 35+ comprehensive test scenarios
+- [`rest/admin/ticket.rest`](rest/admin/ticket.rest:1) - Admin ticket system testing with 45+ comprehensive test scenarios
+
+### Support Ticket System Testing
+
+- **User Functionality Tests**: Complete validation of ticket creation, messaging, file uploads, and self-service closure
+- **Admin Management Tests**: Full admin control testing including bulk operations, statistics, and lifecycle management
+- **File Upload Tests**: Comprehensive validation of image upload functionality with size and type restrictions
+- **Status Workflow Tests**: Complete testing of three-status workflow with automatic transitions
+- **Error Handling Tests**: Extensive validation of error scenarios and edge cases
+- **Authentication Tests**: Complete access control validation for user and admin endpoints
+
+### Auto-Renewal System Testing
+
+- **Billing Service Tests**: Complete validation of auto-renewal processing logic
+- **Job Scheduler Tests**: Manual job execution and status monitoring
+- **Grace Period Tests**: Grace period setting, processing, and suspension workflows
+- **Notification Tests**: All 6 notification types with mock data validation
+- **Admin Interface Tests**: Complete admin billing management endpoint testing
+- **Environment Tests**: Configuration validation and fallback testing
+- **Integration Tests**: End-to-end auto-renewal workflow validation

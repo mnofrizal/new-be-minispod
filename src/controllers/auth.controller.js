@@ -91,9 +91,7 @@ const logout = async (req, res) => {
   try {
     const { refreshToken } = req.body;
 
-    if (refreshToken) {
-      await authService.revokeRefreshToken(refreshToken);
-    }
+    await authService.logout(refreshToken);
 
     sendResponse(res, StatusCodes.OK, null, "Logged out successfully");
   } catch (error) {
@@ -157,6 +155,104 @@ const getProfile = async (req, res) => {
   }
 };
 
+const googleLogin = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    const result = await authService.googleLogin(idToken);
+
+    // Use simplified response format without message
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    logger.error("Google login error:", error);
+
+    if (
+      error.message === "Invalid Google token" ||
+      error.message === "Account is deactivated. Please contact administrator."
+    ) {
+      return res.status(StatusCodes.UNAUTHORIZED).json({
+        success: false,
+        error: error.message,
+      });
+    }
+
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+};
+
+const linkGoogleAccount = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { idToken } = req.body;
+
+    const result = await authService.linkGoogleAccount(userId, idToken);
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      { user: result },
+      "Google account linked successfully"
+    );
+  } catch (error) {
+    logger.error("Link Google account error:", error);
+
+    if (
+      error.message === "Invalid Google token" ||
+      error.message ===
+        "This Google account is already linked to another user" ||
+      error.message ===
+        "Google account email does not match your account email" ||
+      error.message === "User not found"
+    ) {
+      return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
+  }
+};
+
+const unlinkGoogleAccount = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const result = await authService.unlinkGoogleAccount(userId);
+
+    res.status(StatusCodes.OK).json({
+      success: true,
+      data: { user: result },
+    });
+  } catch (error) {
+    logger.error("Unlink Google account error:", error);
+
+    if (
+      error.message === "User not found" ||
+      error.message === "No Google account linked to this user" ||
+      error.message.includes("Cannot unlink Google account")
+    ) {
+      return res.status(StatusCodes.BAD_REQUEST).json({
+        success: false,
+        error: error.message,
+      });
+    }
+
+    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
+      success: false,
+      error: "Internal server error",
+    });
+  }
+};
+
 export default {
   register,
   login,
@@ -164,4 +260,7 @@ export default {
   logout,
   logoutAll,
   getProfile,
+  googleLogin,
+  linkGoogleAccount,
+  unlinkGoogleAccount,
 };

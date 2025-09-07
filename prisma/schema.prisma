@@ -23,10 +23,15 @@ model User {
   phone     String?  @unique
   role      Role     @default(USER)
   avatar    String?
-  password  String
+  password  String? // Made optional for Google OAuth users
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Google OAuth fields
+  googleId      String? @unique // Google user ID
+  isGoogleUser  Boolean @default(false) // Flag to identify Google OAuth users
+  emailVerified Boolean @default(false) // Email verification status
 
   // EXISTING RELATIONS
   refreshTokens RefreshToken[]
@@ -36,8 +41,14 @@ model User {
   totalTopUp    Int @default(0) // Total lifetime top-up in IDR
   totalSpent    Int @default(0) // Total lifetime spending in IDR
 
-  subscriptions Subscription[]
-  transactions  Transaction[]
+  subscriptions    Subscription[]
+  transactions     Transaction[]
+  CouponRedemption CouponRedemption[]
+
+  // Support Ticket Relations
+  tickets           Ticket[]
+  ticketMessages    TicketMessage[]
+  ticketAttachments TicketAttachment[]
 
   @@map("users")
 }
@@ -104,6 +115,7 @@ model Service {
 
   plans         ServicePlan[]
   subscriptions Subscription[]
+  Coupon        Coupon[]
 
   @@map("services")
 }
@@ -205,8 +217,9 @@ model Subscription {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  instances    ServiceInstance[]
-  transactions Transaction[]
+  instances        ServiceInstance[]
+  transactions     Transaction[]
+  CouponRedemption CouponRedemption[]
 
   // BUSINESS RULE: One active subscription per user per service (enforced in application logic)
   // Removed unique constraint to allow subscription history and re-subscriptions
@@ -223,6 +236,7 @@ enum TransactionType {
   UPGRADE // Upgrade cost difference
   REFUND // Refund from cancellation
   ADMIN_ADJUSTMENT // Manual admin adjustment
+  COUPON_REDEMPTION // Coupon redemption for credit
 }
 
 enum TransactionStatus {
@@ -239,6 +253,7 @@ enum PaymentMethod {
   MIDTRANS_CREDIT_CARD // Visa, Mastercard
   MIDTRANS_QRIS // QRIS payment
   ADMIN_MANUAL // Manual admin adjustment
+  COUPON_REDEMPTION // Coupon redemption payment method
 }
 
 model Transaction {
@@ -272,6 +287,8 @@ model Transaction {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   completedAt DateTime?
+
+  couponRedemption CouponRedemption?
 
   @@map("transactions")
 }
@@ -334,6 +351,168 @@ model ServiceInstance {
   lastStopped DateTime?
 
   @@map("service_instances")
+}
+
+// ============================================================================
+// COUPON SYSTEM
+// ============================================================================
+
+enum CouponType {
+  CREDIT_TOPUP // Add credit to wallet (billing page)
+  SUBSCRIPTION_DISCOUNT // Discount on subscription (checkout page)
+  FREE_SERVICE // Free service redemption
+  WELCOME_BONUS // Welcome bonus for new users (auto-applied)
+}
+
+enum CouponDiscountType {
+  FIXED_AMOUNT // Fixed IDR amount
+  PERCENTAGE // Percentage discount
+}
+
+enum CouponStatus {
+  ACTIVE
+  EXPIRED
+  DISABLED
+  USED_UP
+}
+
+model Coupon {
+  id          String  @id @default(cuid())
+  code        String  @unique // "WELCOME50K", "SAVE20", "FREEN8N"
+  name        String // "Welcome Bonus", "20% Off", "Free N8N"
+  description String?
+
+  type   CouponType
+  status CouponStatus @default(ACTIVE)
+
+  // Value Configuration
+  creditAmount    Int? // For CREDIT_TOPUP and FIXED_AMOUNT discounts
+  discountType    CouponDiscountType? // For SUBSCRIPTION_DISCOUNT
+  discountPercent Int? // Percentage discount (1-100)
+
+  // Usage Limits
+  maxUses        Int @default(1) // Total usage limit
+  usedCount      Int @default(0) // Current usage count
+  maxUsesPerUser Int @default(1) // Per-user usage limit
+
+  // Service Restrictions (optional)
+  serviceId String? // Restrict to specific service
+  service   Service?  @relation(fields: [serviceId], references: [id])
+  planType  PlanType? // Restrict to specific plan types
+
+  // Validity Period
+  validFrom  DateTime  @default(now())
+  validUntil DateTime?
+
+  // Admin Information
+  createdBy String // Admin user ID
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  redemptions CouponRedemption[]
+
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id String @id @default(cuid())
+
+  couponId String
+  coupon   Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Redemption Details
+  redemptionType CouponType // Type at time of redemption
+  creditAmount   Int? // Credit amount redeemed (for CREDIT_TOPUP)
+  discountAmount Int? // Discount amount applied (for SUBSCRIPTION_DISCOUNT)
+
+  // Related Records
+  transactionId String?      @unique // Link to transaction record (for CREDIT_TOPUP)
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+
+  subscriptionId String? // Link to subscription (for discounts/free service)
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  metadata Json? // Additional redemption data
+
+  redeemedAt DateTime @default(now())
+
+  @@unique([couponId, userId]) // Prevent duplicate redemptions per user
+  @@map("coupon_redemptions")
+}
+
+// ============================================================================
+// SUPPORT TICKET SYSTEM
+// ============================================================================
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+model Ticket {
+  id           String       @id @default(cuid())
+  ticketNumber Int          @unique @default(autoincrement()) // Auto-increment: #001, #002, etc.
+  subject      String
+  description  String
+  status       TicketStatus @default(OPEN)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  messages    TicketMessage[]
+  attachments TicketAttachment[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  closedAt  DateTime?
+  closedBy  String? // Admin who closed the ticket
+
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id           String  @id @default(cuid())
+  content      String
+  isAdminReply Boolean @default(false)
+
+  ticketId String
+  ticket   Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  attachments TicketAttachment[]
+
+  createdAt DateTime @default(now())
+
+  @@map("ticket_messages")
+}
+
+model TicketAttachment {
+  id         String @id @default(cuid())
+  filename   String // Original filename
+  storedName String // Stored filename (UUID-based)
+  filePath   String // Full file path
+  fileSize   Int // File size in bytes
+  mimeType   String // MIME type (image/jpeg, image/png, etc.)
+
+  ticketId String?
+  ticket   Ticket? @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  messageId String?
+  message   TicketMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  uploadedBy String
+  uploader   User   @relation(fields: [uploadedBy], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@map("ticket_attachments")
 }
 
 // ============================================================================

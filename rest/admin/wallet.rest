@@ -1,0 +1,341 @@
+### Admin Wallet Management API Tests
+### Base URL: http://localhost:3000/api/admin/wallets
+
+### Variables
+@baseUrl = http://localhost:3000/api
+@adminToken = {{login_admin.response.body.data.accessToken}}
+@testUserId = {{get_users.response.body.users[0].id}}
+
+### ============================================
+### AUTHENTICATION - Get Admin Token
+### ============================================
+
+### Admin Login
+# @name login_admin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+
+### Get Users for Testing (to get a valid user ID)
+# @name get_users
+GET {{baseUrl}}/admin/wallets/overview?limit=5
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### WALLET STATISTICS AND OVERVIEW
+### ============================================
+
+### Get Wallet Statistics
+GET {{baseUrl}}/admin/wallets/statistics
+Authorization: Bearer {{adminToken}}
+
+### Get Wallet Overview (Default)
+GET {{baseUrl}}/admin/wallets/overview
+Authorization: Bearer {{adminToken}}
+
+### Get Wallet Overview with Filters
+GET {{baseUrl}}/admin/wallets/overview?page=1&limit=10&sortBy=creditBalance&sortOrder=desc
+Authorization: Bearer {{adminToken}}
+
+### Get Wallet Overview with Search
+GET {{baseUrl}}/admin/wallets/overview?search=user&minBalance=0&maxBalance=1000000
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### USER WALLET DETAILS
+### ============================================
+
+### Get User Wallet Details
+GET {{baseUrl}}/admin/wallets/users/{{testUserId}}
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### CREDIT ADJUSTMENTS
+### ============================================
+
+### Add Credit to User
+POST {{baseUrl}}/admin/wallets/users/{{testUserId}}/add-credit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 50000,
+  "reason": "Promotional credit bonus",
+  "description": "Added promotional credit for new user onboarding campaign"
+}
+
+### Deduct Credit from User (with sufficient balance)
+POST {{baseUrl}}/admin/wallets/users/{{testUserId}}/deduct-credit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 25000,
+  "reason": "Service adjustment",
+  "description": "Deducted credit for service adjustment due to billing error",
+  "allowNegative": false
+}
+
+### Deduct Credit from User (allow negative balance)
+POST {{baseUrl}}/admin/wallets/users/{{testUserId}}/deduct-credit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 10000,
+  "reason": "Emergency deduction",
+  "description": "Emergency credit deduction for policy violation",
+  "allowNegative": true
+}
+
+### ============================================
+### BULK CREDIT ADJUSTMENTS
+### ============================================
+
+### Bulk Credit Adjustment - Mixed Operations
+POST {{baseUrl}}/admin/wallets/bulk-adjustment
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "adjustments": [
+    {
+      "userId": "{{testUserId}}",
+      "type": "ADD",
+      "amount": 30000,
+      "allowNegative": false
+    }
+  ],
+  "reason": "Monthly promotional credit distribution",
+  "description": "Bulk credit adjustment for active users - December 2024 promotion"
+}
+
+### ============================================
+### VALIDATION TESTS
+### ============================================
+
+### Add Credit - Invalid User ID
+POST {{baseUrl}}/admin/wallets/users/invalid-uuid/add-credit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 50000,
+  "reason": "Testing invalid user ID"
+}
+
+### Add Credit - Amount Too Small
+POST {{baseUrl}}/admin/wallets/users/{{testUserId}}/add-credit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 500,
+  "reason": "Testing minimum amount validation"
+}
+
+### Add Credit - Amount Too Large
+POST {{baseUrl}}/admin/wallets/users/{{testUserId}}/add-credit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 200000000,
+  "reason": "Testing maximum amount validation"
+}
+
+### Add Credit - Missing Required Fields
+POST {{baseUrl}}/admin/wallets/users/{{testUserId}}/add-credit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 50000
+}
+
+### Deduct Credit - Insufficient Balance (without allowNegative)
+POST {{baseUrl}}/admin/wallets/users/{{testUserId}}/deduct-credit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 999999999,
+  "reason": "Testing insufficient balance",
+  "allowNegative": false
+}
+
+### Bulk Adjustment - Empty Array
+POST {{baseUrl}}/admin/wallets/bulk-adjustment
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "adjustments": [],
+  "reason": "Testing empty adjustments array"
+}
+
+### Bulk Adjustment - Invalid Type
+POST {{baseUrl}}/admin/wallets/bulk-adjustment
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "adjustments": [
+    {
+      "userId": "{{testUserId}}",
+      "type": "INVALID",
+      "amount": 10000
+    }
+  ],
+  "reason": "Testing invalid adjustment type"
+}
+
+### Bulk Adjustment - Too Many Adjustments
+POST {{baseUrl}}/admin/wallets/bulk-adjustment
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "adjustments": [
+    {"userId": "{{testUserId}}", "type": "ADD", "amount": 10000}
+  ],
+  "reason": "Testing bulk adjustment limits"
+}
+
+### ============================================
+### ERROR HANDLING TESTS
+### ============================================
+
+### Get User Wallet Details - Non-existent User
+GET {{baseUrl}}/admin/wallets/users/cm0slquw90001vv4azb9pes99
+Authorization: Bearer {{adminToken}}
+
+### Add Credit - Non-existent User
+POST {{baseUrl}}/admin/wallets/users/cm0slquw90001vv4azb9pes99/add-credit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 50000,
+  "reason": "Testing non-existent user"
+}
+
+### Bulk Adjustment - Non-existent User
+POST {{baseUrl}}/admin/wallets/bulk-adjustment
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "adjustments": [
+    {
+      "userId": "cm0slquw90001vv4azb9pes99",
+      "type": "ADD",
+      "amount": 10000
+    }
+  ],
+  "reason": "Testing non-existent user in bulk adjustment"
+}
+
+### ============================================
+### AUTHORIZATION TESTS
+### ============================================
+
+### Access without token (should fail)
+GET {{baseUrl}}/admin/wallets/overview
+
+### Access with invalid token (should fail)
+GET {{baseUrl}}/admin/wallets/overview
+Authorization: Bearer invalid-token
+
+### ============================================
+### REALISTIC WALLET MANAGEMENT SCENARIOS
+### ============================================
+
+### Scenario 1: Customer Service Credit Refund
+POST {{baseUrl}}/admin/wallets/users/{{testUserId}}/add-credit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 75000,
+  "reason": "Customer service refund",
+  "description": "Refund for service downtime on 2024-08-30. Ticket #CS-2024-001234"
+}
+
+### Scenario 2: Billing Error Correction
+POST {{baseUrl}}/admin/wallets/users/{{testUserId}}/deduct-credit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 15000,
+  "reason": "Billing error correction",
+  "description": "Correcting duplicate charge from transaction TXMP-105. Original amount should be 35000, not 50000",
+  "allowNegative": false
+}
+
+### Scenario 3: Promotional Campaign
+POST {{baseUrl}}/admin/wallets/bulk-adjustment
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "adjustments": [
+    {
+      "userId": "{{testUserId}}",
+      "type": "ADD",
+      "amount": 100000,
+      "allowNegative": false
+    }
+  ],
+  "reason": "New Year 2025 promotional campaign",
+  "description": "Special promotional credit for loyal customers - 100k IDR bonus credit"
+}
+
+### Scenario 4: Account Suspension Recovery
+POST {{baseUrl}}/admin/wallets/users/{{testUserId}}/add-credit
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "amount": 200000,
+  "reason": "Account suspension recovery",
+  "description": "Restoring credit balance after resolving account suspension. User was incorrectly flagged by automated system."
+}
+
+### ============================================
+### WALLET OVERVIEW FILTERING TESTS
+### ============================================
+
+### Filter by Balance Range
+GET {{baseUrl}}/admin/wallets/overview?minBalance=50000&maxBalance=500000
+Authorization: Bearer {{adminToken}}
+
+### Filter with Search and Sort
+GET {{baseUrl}}/admin/wallets/overview?search=test&sortBy=totalSpent&sortOrder=desc&limit=20
+Authorization: Bearer {{adminToken}}
+
+### Pagination Test
+GET {{baseUrl}}/admin/wallets/overview?page=2&limit=5
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### FINAL VERIFICATION
+### ============================================
+
+### Check User Wallet After All Operations
+GET {{baseUrl}}/admin/wallets/users/{{testUserId}}
+Authorization: Bearer {{adminToken}}
+
+### Final Wallet Statistics
+GET {{baseUrl}}/admin/wallets/statistics
+Authorization: Bearer {{adminToken}}
+
+### Final Wallet Overview
+GET {{baseUrl}}/admin/wallets/overview?limit=10
+Authorization: Bearer {{adminToken}}

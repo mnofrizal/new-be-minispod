@@ -11,7 +11,7 @@ POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
-  "email": "user1@minispod.com",
+  "email": "user2@minispod.com",
   "password": "password123"
 }
 
@@ -1216,3 +1216,272 @@ Content-Type: application/json
 # - Use with GET /api/wallet/info for current credit balance
 # - Use with PUT /api/subscriptions/:id/upgrade for actual upgrade
 # - Use with GET /api/catalog/services/:id/plans for complete plan catalog
+
+### ============================================================================
+### AUTO-RENEW TOGGLE ENDPOINT (NEW)
+### ============================================================================
+
+### Test 1: Enable Auto-Renew for Subscription (Success Case)
+PUT {{baseUrl}}/subscriptions/cmey9kfr4003xvvg5lkkwwjan/auto-renew
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "autoRenew": true
+}
+
+### Test 2: Disable Auto-Renew for Subscription (Success Case)
+PUT {{baseUrl}}/subscriptions/cmey9kfr4003xvvg5lkkwwjan/auto-renew
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "autoRenew": false
+}
+
+### Test 3: Toggle Auto-Renew - Non-existent Subscription (should fail)
+PUT {{baseUrl}}/subscriptions/clnonexistentsubscription/auto-renew
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "autoRenew": true
+}
+
+### Test 4: Toggle Auto-Renew - Without Authentication (should fail)
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/auto-renew
+Content-Type: application/json
+
+{
+  "autoRenew": true
+}
+
+### Test 5: Toggle Auto-Renew - Invalid JWT (should fail)
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/auto-renew
+Authorization: Bearer invalid_jwt_token
+Content-Type: application/json
+
+{
+  "autoRenew": false
+}
+
+### Test 6: Toggle Auto-Renew - Missing autoRenew Field (should fail)
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/auto-renew
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "invalidField": true
+}
+
+### Test 7: Toggle Auto-Renew - Invalid autoRenew Value (should fail)
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/auto-renew
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "autoRenew": "invalid_string"
+}
+
+### Test 8: Toggle Auto-Renew - Cancelled Subscription (should fail)
+# Note: Use subscription ID that has been cancelled
+PUT {{baseUrl}}/subscriptions/cancelled-subscription-id/auto-renew
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "autoRenew": true
+}
+
+### Test 9: Toggle Auto-Renew - Expired Subscription (should fail)
+# Note: Use subscription ID that has expired
+PUT {{baseUrl}}/subscriptions/expired-subscription-id/auto-renew
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "autoRenew": true
+}
+
+### Test 10: Toggle Auto-Renew - Subscription Belonging to Another User (should fail)
+# Note: Use different user's subscription ID
+PUT {{baseUrl}}/subscriptions/other-user-subscription-id/auto-renew
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "autoRenew": true
+}
+
+### ============================================================================
+### AUTO-RENEW TOGGLE WORKFLOW TESTS
+### ============================================================================
+
+### Workflow Test 1: Check Subscription Status Before Toggle
+GET {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 2: Disable Auto-Renew
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/auto-renew
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "autoRenew": false
+}
+
+### Workflow Test 3: Check Subscription Status After Disable (should show autoRenew: false)
+GET {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 4: Enable Auto-Renew Again
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/auto-renew
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "autoRenew": true
+}
+
+### Workflow Test 5: Check Subscription Status After Enable (should show autoRenew: true)
+GET {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{authToken}}
+
+### Workflow Test 6: Verify Billing Info Reflects Auto-Renew Setting
+GET {{baseUrl}}/subscriptions/cmey9kfr4003xvvg5lkkwwjan/billing-info
+Authorization: Bearer {{authToken}}
+
+### ============================================================================
+### AUTO-RENEW TOGGLE RESPONSE STRUCTURE VALIDATION
+### ============================================================================
+
+### Test Expected Auto-Renew Enable Response Structure
+PUT {{baseUrl}}/subscriptions/cmeu4cgo20007vvbohd84o1w1/auto-renew
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "autoRenew": true
+}
+
+# Expected Enable Response Structure:
+# {
+#   "success": true,
+#   "statusCode": 200,
+#   "data": {
+#     "subscription": {
+#       "id": "cmeu4cgo20007vvbohd84o1w1",
+#       "status": "ACTIVE",
+#       "autoRenew": true,
+#       "endDate": "2025-09-30T00:00:00.000Z",
+#       "nextBilling": "2025-09-30T00:00:00.000Z",
+#       "monthlyPrice": 50000,
+#       "service": { "name": "N8N Automation", "slug": "n8n-automation" },
+#       "plan": { "name": "Basic", "planType": "BASIC" }
+#     },
+#     "billingInfo": {
+#       "autoRenew": true,
+#       "nextBillingDate": "2025-09-30T00:00:00.000Z",
+#       "daysUntilBilling": 30,
+#       "monthlyPrice": 50000,
+#       "nextChargeAmount": 50000
+#     },
+#     "message": "Auto-renew enabled. Your subscription will automatically renew at the end of the current period.",
+#     "nextSteps": [
+#       "Your subscription will automatically renew on the next billing date",
+#       "Ensure you have sufficient credit balance for automatic renewal",
+#       "You can disable auto-renew anytime before the next billing date"
+#     ]
+#   },
+#   "message": "Auto-renew enabled successfully",
+#   "timestamp": "2025-08-30T13:00:00.123Z"
+# }
+
+### Test Expected Auto-Renew Disable Response Structure
+PUT {{baseUrl}}/subscriptions/cmey9kfr4003xvvg5lkkwwjan/auto-renew
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "autoRenew": false
+}
+
+# Expected Disable Response Structure:
+# {
+#   "success": true,
+#   "statusCode": 200,
+#   "data": {
+#     "subscription": {
+#       "id": "cmeu4cgo20007vvbohd84o1w1",
+#       "status": "ACTIVE",
+#       "autoRenew": false,
+#       "endDate": "2025-09-30T00:00:00.000Z",
+#       "nextBilling": null,
+#       "monthlyPrice": 50000,
+#       "service": { "name": "N8N Automation", "slug": "n8n-automation" },
+#       "plan": { "name": "Basic", "planType": "BASIC" }
+#     },
+#     "billingInfo": {
+#       "autoRenew": false,
+#       "nextBillingDate": null,
+#       "daysUntilBilling": 30,
+#       "monthlyPrice": 50000,
+#       "nextChargeAmount": 0
+#     },
+#     "message": "Auto-renew disabled. Your subscription will end at the current period end date.",
+#     "nextSteps": [
+#       "Your subscription will end on the current period end date",
+#       "No automatic charges will occur",
+#       "You can re-enable auto-renew anytime before the end date",
+#       "You can also manually renew or upgrade before expiration"
+#     ]
+#   },
+#   "message": "Auto-renew disabled successfully",
+#   "timestamp": "2025-08-30T13:00:00.123Z"
+# }
+
+### ============================================================================
+### AUTO-RENEW TOGGLE FUNCTIONALITY NOTES
+### ============================================================================
+
+# Auto-Renew Toggle Business Rules:
+# - Only works for ACTIVE subscriptions
+# - Cannot modify auto-renew for CANCELLED or EXPIRED subscriptions
+# - User can only modify their own subscriptions
+# - Updates nextBilling field based on auto-renew setting:
+#   - autoRenew: true → nextBilling = endDate
+#   - autoRenew: false → nextBilling = null
+# - Provides clear messaging about billing implications
+# - Returns updated subscription and billing information
+
+# Auto-Renew States:
+# - ENABLED (autoRenew: true):
+#   - Subscription will automatically renew on endDate
+#   - nextBilling field is set to endDate
+#   - nextChargeAmount equals monthlyPrice
+#   - User will be charged automatically if sufficient credit
+#
+# - DISABLED (autoRenew: false):
+#   - Subscription will end on endDate without renewal
+#   - nextBilling field is set to null
+#   - nextChargeAmount is 0
+#   - No automatic charges will occur
+
+# Frontend Implementation Notes:
+# - Show toggle switch on subscription dashboard
+# - Display current auto-renew status clearly
+# - Show next billing date when auto-renew is enabled
+# - Show expiration date when auto-renew is disabled
+# - Provide clear messaging about billing implications
+# - Handle all error scenarios with user-friendly messages
+# - Refresh subscription data after toggle
+# - Show confirmation dialog for important changes
+
+# Integration with Other Features:
+# - Works with billing-info endpoint to show complete billing picture
+# - Affects subscription renewal logic in billing system
+# - Integrates with credit balance checking for renewals
+# - Compatible with subscription upgrade/downgrade operations
+# - Maintains audit trail through database transactions
+
+### END OF FILE

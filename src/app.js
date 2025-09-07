@@ -9,6 +9,7 @@ import routes from "./routes/index.routes.js";
 
 // Import health monitoring service
 import healthService from "./services/k8s/health.service.js";
+import autoRenewalJob from "./jobs/auto-renewal.job.js";
 import logger from "./utils/logger.js";
 
 const app = express();
@@ -61,6 +62,16 @@ if (process.env.NODE_ENV !== "test") {
       logger.warn("Failed to start health monitoring:", error.message);
     }
   }, 10000); // 10 second delay
+
+  // Start auto-renewal job scheduler after health monitoring
+  setTimeout(() => {
+    try {
+      autoRenewalJob.start();
+      logger.info("Auto-renewal job scheduler started");
+    } catch (error) {
+      logger.warn("Failed to start auto-renewal jobs:", error.message);
+    }
+  }, 15000); // 15 second delay
 }
 
 // Graceful shutdown
@@ -70,6 +81,12 @@ process.on("SIGTERM", () => {
     clearInterval(healthMonitoringInterval);
     logger.info("Health monitoring stopped");
   }
+  try {
+    autoRenewalJob.stop();
+    logger.info("Auto-renewal jobs stopped");
+  } catch (error) {
+    logger.warn("Error stopping auto-renewal jobs:", error.message);
+  }
   process.exit(0);
 });
 
@@ -78,6 +95,12 @@ process.on("SIGINT", () => {
   if (healthMonitoringInterval) {
     clearInterval(healthMonitoringInterval);
     logger.info("Health monitoring stopped");
+  }
+  try {
+    autoRenewalJob.stop();
+    logger.info("Auto-renewal jobs stopped");
+  } catch (error) {
+    logger.warn("Error stopping auto-renewal jobs:", error.message);
   }
   process.exit(0);
 });

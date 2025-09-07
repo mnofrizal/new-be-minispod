@@ -2,7 +2,6 @@ import provisioningService from "../services/k8s/provisioning.service.js";
 import sendResponse from "../utils/response.js";
 import { StatusCodes } from "http-status-codes";
 import logger from "../utils/logger.js";
-import prisma from "../utils/prisma.js";
 
 /**
  * Create a new service instance from subscription
@@ -11,16 +10,7 @@ import prisma from "../utils/prisma.js";
 const createInstance = async (req, res) => {
   try {
     const { subscriptionId } = req.body;
-    const userId = req.user.id;
-
-    if (!subscriptionId) {
-      return sendResponse(
-        res,
-        StatusCodes.BAD_REQUEST,
-        null,
-        "Subscription ID is required"
-      );
-    }
+    const userId = req.user.userId;
 
     // Verify subscription belongs to user (done in service layer)
     const result = await provisioningService.provisionServiceInstance(
@@ -78,7 +68,7 @@ const createInstance = async (req, res) => {
  */
 const getUserInstances = async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const { status, includeTerminated = false } = req.query;
 
     const instances = await provisioningService.getUserInstances(userId, {
@@ -114,19 +104,9 @@ const getUserInstances = async (req, res) => {
 const getInstanceDetails = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
-    const result = await provisioningService.getInstanceStatus(id);
-
-    // Verify instance belongs to user
-    if (result.instance.subscription.user.id !== userId) {
-      return sendResponse(
-        res,
-        StatusCodes.FORBIDDEN,
-        null,
-        "Access denied to this service instance"
-      );
-    }
+    const result = await provisioningService.getInstanceStatus(id, userId);
 
     sendResponse(
       res,
@@ -162,20 +142,12 @@ const getInstanceDetails = async (req, res) => {
 const terminateInstance = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
-    // First verify instance belongs to user
-    const instanceStatus = await provisioningService.getInstanceStatus(id);
-    if (instanceStatus.instance.subscription.user.id !== userId) {
-      return sendResponse(
-        res,
-        StatusCodes.FORBIDDEN,
-        null,
-        "Access denied to this service instance"
-      );
-    }
-
-    const result = await provisioningService.terminateServiceInstance(id);
+    const result = await provisioningService.terminateServiceInstance(
+      id,
+      userId
+    );
 
     sendResponse(
       res,
@@ -212,51 +184,13 @@ const updateInstance = async (req, res) => {
   try {
     const { id } = req.params;
     const { planId } = req.body;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
-    if (!planId) {
-      return sendResponse(
-        res,
-        StatusCodes.BAD_REQUEST,
-        null,
-        "Plan ID is required"
-      );
-    }
-
-    // First verify instance belongs to user
-    const instanceStatus = await provisioningService.getInstanceStatus(id);
-    if (instanceStatus.instance.subscription.user.id !== userId) {
-      return sendResponse(
-        res,
-        StatusCodes.FORBIDDEN,
-        null,
-        "Access denied to this service instance"
-      );
-    }
-
-    // Get new plan details
-    const newPlan = await prisma.servicePlan.findUnique({
-      where: { id: planId, isActive: true },
-      select: {
-        id: true,
-        name: true,
-        planType: true,
-        cpuMilli: true,
-        memoryMb: true,
-        storageGb: true,
-      },
-    });
-
-    if (!newPlan) {
-      return sendResponse(
-        res,
-        StatusCodes.NOT_FOUND,
-        null,
-        "Service plan not found"
-      );
-    }
-
-    const result = await provisioningService.updateServiceInstance(id, newPlan);
+    const result = await provisioningService.updateServiceInstance(
+      id,
+      planId,
+      userId
+    );
 
     sendResponse(
       res,
@@ -310,36 +244,21 @@ const updateInstance = async (req, res) => {
 const getInstanceLogs = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const { lines = 100, follow = false } = req.query;
-
-    // First verify instance belongs to user
-    const instanceStatus = await provisioningService.getInstanceStatus(id);
-    if (instanceStatus.instance.subscription.user.id !== userId) {
-      return sendResponse(
-        res,
-        StatusCodes.FORBIDDEN,
-        null,
-        "Access denied to this service instance"
-      );
-    }
 
     // For now, return a placeholder response
     // In a full implementation, this would fetch logs from Kubernetes
+    // Authorization will be handled in service layer
+    const result = await provisioningService.getInstanceLogs(id, userId, {
+      lines,
+      follow,
+    });
+
     sendResponse(
       res,
       StatusCodes.OK,
-      {
-        instanceId: id,
-        logs: [
-          {
-            timestamp: new Date().toISOString(),
-            level: "info",
-            message: "Log retrieval feature coming soon",
-          },
-        ],
-        message: "Log retrieval feature is under development",
-      },
+      result,
       "Instance logs retrieved successfully"
     );
   } catch (error) {
@@ -370,21 +289,9 @@ const getInstanceLogs = async (req, res) => {
 const restartInstance = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
-    // First verify instance belongs to user
-    const instanceStatus = await provisioningService.getInstanceStatus(id);
-    if (instanceStatus.instance.subscription.user.id !== userId) {
-      return sendResponse(
-        res,
-        StatusCodes.FORBIDDEN,
-        null,
-        "Access denied to this service instance"
-      );
-    }
-
-    // Call the restart service
-    const result = await provisioningService.restartServiceInstance(id);
+    const result = await provisioningService.restartServiceInstance(id, userId);
 
     sendResponse(
       res,
@@ -447,21 +354,9 @@ const restartInstance = async (req, res) => {
 const stopInstance = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
-    // First verify instance belongs to user
-    const instanceStatus = await provisioningService.getInstanceStatus(id);
-    if (instanceStatus.instance.subscription.user.id !== userId) {
-      return sendResponse(
-        res,
-        StatusCodes.FORBIDDEN,
-        null,
-        "Access denied to this service instance"
-      );
-    }
-
-    // Call the stop service
-    const result = await provisioningService.stopServiceInstance(id);
+    const result = await provisioningService.stopServiceInstance(id, userId);
 
     sendResponse(
       res,
@@ -524,21 +419,9 @@ const stopInstance = async (req, res) => {
 const startInstance = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
-    // First verify instance belongs to user
-    const instanceStatus = await provisioningService.getInstanceStatus(id);
-    if (instanceStatus.instance.subscription.user.id !== userId) {
-      return sendResponse(
-        res,
-        StatusCodes.FORBIDDEN,
-        null,
-        "Access denied to this service instance"
-      );
-    }
-
-    // Call the start service
-    const result = await provisioningService.startServiceInstance(id);
+    const result = await provisioningService.startServiceInstance(id, userId);
 
     sendResponse(
       res,

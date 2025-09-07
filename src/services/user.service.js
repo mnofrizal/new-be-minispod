@@ -1,7 +1,7 @@
 import prisma from "../utils/prisma.js";
 
 const getProfileById = async (userId) => {
-  return prisma.user.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
       id: true,
@@ -15,6 +15,12 @@ const getProfileById = async (userId) => {
       updatedAt: true,
     },
   });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  return user;
 };
 
 const updateUserProfile = async (userId, updateData) => {
@@ -80,8 +86,8 @@ const getAllUsers = async ({ page = 1, limit = 10, search, role }) => {
 
   if (search) {
     where.OR = [
-      { name: { contains: search, mode: 'insensitive' } },
-      { email: { contains: search, mode: 'insensitive' } },
+      { name: { contains: search, mode: "insensitive" } },
+      { email: { contains: search, mode: "insensitive" } },
     ];
   }
 
@@ -102,10 +108,18 @@ const getAllUsers = async ({ page = 1, limit = 10, search, role }) => {
         role: true,
         avatar: true,
         isActive: true,
+        creditBalance: true,
+        totalTopUp: true,
+        totalSpent: true,
         createdAt: true,
         updatedAt: true,
+        _count: {
+          select: {
+            subscriptions: true,
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     }),
     prisma.user.count({ where }),
   ]);

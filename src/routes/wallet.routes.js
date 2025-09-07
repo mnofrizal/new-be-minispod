@@ -10,6 +10,7 @@ import {
   checkCreditValidation,
   midtransWebhookValidation,
 } from "../validations/wallet.validation.js";
+import couponValidation from "../validations/coupon.validation.js";
 
 const router = express.Router();
 
@@ -62,6 +63,28 @@ router.post(
   authenticateToken,
   validate({ body: checkCreditValidation }),
   walletController.checkCreditSufficiency
+);
+
+// Coupon endpoints
+router.post(
+  "/validate-coupon",
+  authenticateToken,
+  validate({ body: couponValidation.validateCouponSchema }),
+  walletController.validateCoupon
+);
+
+router.post(
+  "/redeem-coupon",
+  authenticateToken,
+  validate({ body: couponValidation.redeemCouponSchema }),
+  walletController.redeemCoupon
+);
+
+router.get(
+  "/coupon-history",
+  authenticateToken,
+  validate({ query: couponValidation.couponHistorySchema }),
+  walletController.getCouponHistory
 );
 
 // Webhook endpoint (no authentication - Midtrans will call this)

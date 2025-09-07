@@ -1,0 +1,379 @@
+### Admin Services Management API Tests
+### Base URL: http://localhost:3000/api/admin/services
+
+### Variables
+@baseUrl = http://localhost:3000/api
+@adminToken = {{login_admin.response.body.data.accessToken}}
+@serviceId = {{create_service.response.body.service.id}}
+
+### ============================================
+### AUTHENTICATION - Get Admin Token
+### ============================================
+
+### Admin Login
+# @name login_admin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+### Get Categories (to get valid category IDs)
+# @name get_categories
+GET {{baseUrl}}/catalog/categories
+Authorization: Bearer {{adminToken}}
+### ============================================
+### GLOBAL SERVICE PLANS MANAGEMENT
+### ============================================
+
+### Get All Service Plans (Global)
+# @name get_all_service_plans
+GET {{baseUrl}}/admin/services/plans
+Authorization: Bearer {{adminToken}}
+
+### Get All Service Plans with Filters
+GET {{baseUrl}}/admin/services/plans?page=1&limit=5&planType=BASIC&status=active&search=basic
+Authorization: Bearer {{adminToken}}
+
+### Get All Service Plans by Service ID
+GET {{baseUrl}}/admin/services/plans?serviceId={{serviceId}}
+Authorization: Bearer {{adminToken}}
+
+### Get All Service Plans with Sorting
+GET {{baseUrl}}/admin/services/plans?sortBy=monthlyPrice&sortOrder=asc&limit=10
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### SERVICE STATISTICS
+### ============================================
+
+### Get Service Statistics
+GET {{baseUrl}}/admin/services/statistics
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### SERVICE CRUD OPERATIONS
+### ============================================
+
+### Get All Services (Default)
+GET {{baseUrl}}/admin/services
+Authorization: Bearer {{adminToken}}
+
+### Get All Services with Filters
+GET {{baseUrl}}/admin/services?page=1&limit=5&status=active&sortBy=name&sortOrder=asc
+Authorization: Bearer {{adminToken}}
+
+### Get All Services with Search
+GET {{baseUrl}}/admin/services?search=n8n&category=development-tools
+Authorization: Bearer {{adminToken}}
+
+### Create New Service
+# @name create_service
+POST {{baseUrl}}/admin/services
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Test Service",
+  "slug": "test-service",
+  "description": "This is a test service for admin management testing",
+  "longDescription": "This is a comprehensive test service created for testing admin management functionality. It includes all the necessary configuration for deployment.",
+  "categoryId": "{{get_categories.response.body.data.categories.0.id}}",
+  "dockerImage": "nginx:latest",
+  "version": "latest",
+  "defaultPort": 8080,
+  "envTemplate": {
+    "NODE_ENV": "production",
+    "PORT": "8080"
+  },
+  "tags": ["test", "admin", "management"],
+  "documentation": "https://nginx.org/en/docs/",
+  "isActive": true,
+  "isPublic": true,
+  "isFeatured": false,
+  "sortOrder": 10
+}
+
+### Get Service by ID
+GET {{baseUrl}}/admin/services/{{serviceId}}
+Authorization: Bearer {{adminToken}}
+
+### Update Service
+PUT {{baseUrl}}/admin/services/{{serviceId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Updated Test Service",
+  "description": "This is an updated test service description",
+  "defaultPort": 9090,
+  "isActive": true
+}
+
+### Toggle Service Status
+PATCH {{baseUrl}}/admin/services/{{serviceId}}/toggle-status
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### SERVICE VALIDATION TESTS
+### ============================================
+
+### Create Service - Invalid Data (Missing Required Fields)
+POST {{baseUrl}}/admin/services
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Test"
+}
+
+### Create Service - Invalid Slug Format
+POST {{baseUrl}}/admin/services
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Invalid Slug Service",
+  "slug": "Invalid_Slug_With_Underscores",
+  "description": "This service has an invalid slug format",
+  "categoryId": "cm0slquw90001vv4azb9pes40",
+  "dockerImage": "nginx:latest",
+  "defaultPort": 8080,
+  "kubernetesConfig": {}
+}
+
+### Create Service - Invalid Port Range
+POST {{baseUrl}}/admin/services
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Invalid Port Service",
+  "slug": "invalid-port-service",
+  "description": "This service has an invalid port number",
+  "categoryId": "cm0slquw90001vv4azb9pes40",
+  "dockerImage": "nginx:latest",
+  "defaultPort": 70000,
+  "kubernetesConfig": {}
+}
+
+### Update Service - Invalid UUID
+PUT {{baseUrl}}/admin/services/invalid-uuid
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Updated Service"
+}
+
+### Get Service - Non-existent ID
+GET {{baseUrl}}/admin/services/cm0slquw90001vv4azb9pes99
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### SERVICE DELETION TESTS
+### ============================================
+
+### Delete Service - Safe Delete (should fail if has dependencies)
+DELETE {{baseUrl}}/admin/services/{{serviceId}}
+Authorization: Bearer {{adminToken}}
+
+### Delete Service - Force Delete
+DELETE {{baseUrl}}/admin/services/{{serviceId}}?force=true
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### AUTHORIZATION TESTS
+### ============================================
+
+### Access without token (should fail)
+GET {{baseUrl}}/admin/services
+
+### Access with invalid token (should fail)
+GET {{baseUrl}}/admin/services
+Authorization: Bearer invalid-token
+
+### Access with user token (should fail - need admin role)
+# First get user token
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+
+### Try to access admin endpoint with user token (should fail)
+GET {{baseUrl}}/admin/services
+Authorization: Bearer user-token-here
+
+### ============================================
+### EDGE CASES AND ERROR HANDLING
+### ============================================
+
+### Create Service with Duplicate Slug
+POST {{baseUrl}}/admin/services
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Duplicate Slug Service",
+  "slug": "n8n",
+  "description": "This service tries to use an existing slug",
+  "categoryId": "cm0slquw90001vv4azb9pes40",
+  "dockerImage": "nginx:latest",
+  "defaultPort": 8080,
+  "kubernetesConfig": {}
+}
+
+### Update Service with Non-existent Category
+PUT {{baseUrl}}/admin/services/{{serviceId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "categoryId": "cm0slquw90001vv4azb9pes99"
+}
+
+### Get Services with Invalid Query Parameters
+GET {{baseUrl}}/admin/services?page=0&limit=101&sortBy=invalid&sortOrder=invalid
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### PERFORMANCE TESTS
+### ============================================
+
+### Get Services with Maximum Limit
+GET {{baseUrl}}/admin/services?limit=100
+Authorization: Bearer {{adminToken}}
+
+### Get Services with Complex Filters
+GET {{baseUrl}}/admin/services?search=service&status=active&sortBy=createdAt&sortOrder=desc&page=1&limit=50
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### CLEANUP
+### ============================================
+
+### Final Service Statistics Check
+GET {{baseUrl}}/admin/services/statistics
+Authorization: Bearer {{adminToken}}
+
+### List All Services After Tests
+GET {{baseUrl}}/admin/services?limit=100
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### SERVICE PLAN MANAGEMENT (NESTED ROUTES)
+### ============================================
+
+### Get Plans for Test Service
+# @name get_service_plans
+GET {{baseUrl}}/admin/services/{{serviceId}}/plans
+Authorization: Bearer {{adminToken}}
+
+### Create FREE Plan for Test Service
+# @name create_free_plan
+POST {{baseUrl}}/admin/services/{{serviceId}}/plans
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Free Plan",
+  "planType": "FREE",
+  "description": "Free tier for testing the service with basic features",
+  "monthlyPrice": 0,
+  "cpuMilli": 250,
+  "memoryMb": 512,
+  "storageGb": 1,
+  "bandwidth": 10,
+  "totalQuota": 20,
+  "features": ["Basic features", "Community support", "Limited usage"],
+  "maxInstancesPerUser": 1,
+  "maxDomains": 1,
+  "isActive": true,
+  "isPopular": false,
+  "sortOrder": 1
+}
+
+### Create BASIC Plan for Test Service
+# @name create_basic_plan
+POST {{baseUrl}}/admin/services/{{serviceId}}/plans
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Basic Plan",
+  "planType": "BASIC",
+  "description": "Basic tier with enhanced features for small teams",
+  "monthlyPrice": 50000,
+  "cpuMilli": 500,
+  "memoryMb": 1024,
+  "storageGb": 2,
+  "bandwidth": 50,
+  "totalQuota": 50,
+  "features": ["Enhanced features", "Email support", "Standard usage"],
+  "maxInstancesPerUser": 2,
+  "maxDomains": 3,
+  "isActive": true,
+  "isPopular": true,
+  "sortOrder": 2
+}
+
+### Create PRO Plan for Test Service
+POST {{baseUrl}}/admin/services/{{serviceId}}/plans
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Pro Plan",
+  "planType": "PRO",
+  "description": "Professional tier with advanced features for growing businesses",
+  "monthlyPrice": 150000,
+  "cpuMilli": 1000,
+  "memoryMb": 2048,
+  "storageGb": 5,
+  "bandwidth": 100,
+  "totalQuota": 25,
+  "features": ["Advanced features", "Priority support", "High usage limits"],
+  "maxInstancesPerUser": 5,
+  "maxDomains": 10,
+  "isActive": true,
+  "isPopular": false,
+  "sortOrder": 3
+}
+
+### Get Specific Plan Details
+GET {{baseUrl}}/admin/services/{{serviceId}}/plans/{{create_free_plan.response.body.plan.id}}
+Authorization: Bearer {{adminToken}}
+
+### Update Service Plan
+PUT {{baseUrl}}/admin/services/{{serviceId}}/plans/{{create_free_plan.response.body.plan.id}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Updated Free Plan",
+  "description": "Updated free tier with improved features",
+  "totalQuota": 30,
+  "features": ["Basic features", "Community support", "Limited usage", "New feature"],
+  "isPopular": true
+}
+
+### Toggle Service Plan Status
+PATCH {{baseUrl}}/admin/services/{{serviceId}}/plans/{{create_free_plan.response.body.plan.id}}/toggle-status
+Authorization: Bearer {{adminToken}}
+
+### Delete Service Plan (Safe)
+DELETE {{baseUrl}}/admin/services/{{serviceId}}/plans/{{create_free_plan.response.body.plan.id}}
+Authorization: Bearer {{adminToken}}
+
+### Delete Service Plan (Force)
+DELETE {{baseUrl}}/admin/services/{{serviceId}}/plans/{{create_basic_plan.response.body.plan.id}}?force=true
+Authorization: Bearer {{adminToken}}
+
+### Final Check - Get Service with Plans
+GET {{baseUrl}}/admin/services/{{serviceId}}
+Authorization: Bearer {{adminToken}}

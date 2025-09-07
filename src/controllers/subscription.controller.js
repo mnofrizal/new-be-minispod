@@ -1,6 +1,8 @@
 import { StatusCodes } from "http-status-codes";
 import sendResponse from "../utils/response.js";
 import subscriptionService from "../services/subscription.service.js";
+import couponService from "../services/coupon.service.js";
+import prisma from "../utils/prisma.js";
 import {
   getK8sClient,
   getMetricsApi,
@@ -87,7 +89,87 @@ const getSubscriptionDetails = async (req, res) => {
 const createSubscription = async (req, res) => {
   try {
     const userId = req.user.userId;
-    const { planId } = req.body;
+    const { planId, couponCode } = req.body;
+
+    // Get plan details for coupon validation
+    const plan = await prisma.servicePlan.findUnique({
+      where: { id: planId },
+      include: { service: true },
+    });
+
+    if (!plan) {
+      return sendResponse(
+        res,
+        StatusCodes.BAD_REQUEST,
+        null,
+        "Invalid service plan"
+      );
+    }
+
+    let subscriptionOptions = {};
+
+    // Handle coupon if provided
+    if (couponCode) {
+      // Validate coupon
+      const validation = await couponService.validateCoupon(
+        couponCode,
+        userId,
+        {
+          serviceId: plan.serviceId,
+          subscriptionAmount: plan.monthlyPrice,
+        }
+      );
+
+      if (!validation.valid) {
+        return sendResponse(
+          res,
+          StatusCodes.BAD_REQUEST,
+          null,
+          validation.error
+        );
+      }
+
+      const coupon = validation.coupon;
+
+      // Handle different coupon types
+      if (coupon.type === "SUBSCRIPTION_DISCOUNT") {
+        // Calculate discount
+        const discount = await couponService.calculateSubscriptionDiscount(
+          couponCode,
+          userId,
+          plan.monthlyPrice,
+          plan.serviceId
+        );
+
+        subscriptionOptions.couponDiscount = {
+          couponCode,
+          originalAmount: discount.originalAmount,
+          discountAmount: discount.discountAmount,
+          finalAmount: discount.finalAmount,
+        };
+      } else if (coupon.type === "FREE_SERVICE") {
+        // Redeem free service coupon
+        const freeServiceResult = await couponService.redeemFreeServiceCoupon(
+          userId,
+          couponCode,
+          plan.serviceId,
+          planId
+        );
+
+        subscriptionOptions.freeService = {
+          couponCode,
+          redemptionId: freeServiceResult.redemptionId,
+          freeServiceValue: freeServiceResult.freeServiceValue,
+        };
+      } else {
+        return sendResponse(
+          res,
+          StatusCodes.BAD_REQUEST,
+          null,
+          "This coupon cannot be used during subscription checkout"
+        );
+      }
+    }
 
     // Validate subscription before creating
     const validation = await subscriptionService.validateSubscription(
@@ -100,12 +182,45 @@ const createSubscription = async (req, res) => {
       return sendResponse(res, statusCode, null, validation.error);
     }
 
-    const result = await subscriptionService.createSubscription(userId, planId);
+    // Create subscription with coupon options
+    const result = await subscriptionService.createSubscription(
+      userId,
+      planId,
+      subscriptionOptions
+    );
+
+    // Apply coupon discount if applicable
+    if (subscriptionOptions.couponDiscount) {
+      await couponService.applySubscriptionDiscount(
+        couponCode,
+        userId,
+        result.subscription.id,
+        subscriptionOptions.couponDiscount.originalAmount,
+        subscriptionOptions.couponDiscount.discountAmount
+      );
+    }
+
+    // Link free service coupon to subscription
+    if (subscriptionOptions.freeService) {
+      await couponService.linkRedemptionToSubscription(
+        subscriptionOptions.freeService.redemptionId,
+        result.subscription.id
+      );
+    }
 
     sendResponse(
       res,
       StatusCodes.CREATED,
-      result,
+      {
+        ...result,
+        couponApplied: !!couponCode,
+        ...(subscriptionOptions.couponDiscount && {
+          discount: subscriptionOptions.couponDiscount,
+        }),
+        ...(subscriptionOptions.freeService && {
+          freeService: subscriptionOptions.freeService,
+        }),
+      },
       "Subscription created successfully"
     );
   } catch (error) {
@@ -131,6 +246,13 @@ const createSubscription = async (req, res) => {
 
     if (error.message.includes("not found")) {
       return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
+    }
+
+    if (
+      error.message.includes("Invalid coupon") ||
+      error.message.includes("coupon")
+    ) {
+      return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
     }
 
     sendResponse(
@@ -989,6 +1111,48 @@ const getAvailableUpgrades = async (req, res) => {
   }
 };
 
+/**
+ * Toggle auto-renew setting for subscription
+ * PUT /api/subscriptions/:subscriptionId/auto-renew
+ */
+const toggleAutoRenew = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { subscriptionId } = req.params;
+    const { autoRenew } = req.body;
+
+    const result = await subscriptionService.toggleAutoRenew(
+      subscriptionId,
+      userId,
+      autoRenew
+    );
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      result,
+      `Auto-renew ${autoRenew ? "enabled" : "disabled"} successfully`
+    );
+  } catch (error) {
+    logger.error("Toggle auto-renew error:", error);
+
+    if (error.message === "Subscription not found") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
+    }
+
+    if (error.message.includes("Cannot modify auto-renew")) {
+      return sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to toggle auto-renew setting"
+    );
+  }
+};
+
 export default {
   getUserSubscriptions,
   getSubscriptionDetails,
@@ -1002,4 +1166,5 @@ export default {
   stopSubscription,
   startSubscription,
   getAvailableUpgrades,
+  toggleAutoRenew,
 };

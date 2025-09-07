@@ -22,6 +22,9 @@
 
 ### **❌ NOT IMPLEMENTED (Needs to be Done)**
 
+- [x] Auto-renewal system ✅ **COMPLETED** (Phase 6)
+- [x] Coupon/Code Redemption System ✅ **COMPLETED** (Phase 7)
+
 - [x] Service catalog models in database ✅ **COMPLETED**
 - [x] Credit-based billing system ✅ **COMPLETED**
 - [x] Midtrans payment integration ✅ **COMPLETED**
@@ -451,6 +454,87 @@
 
 ---
 
+### **PHASE 8: COUPON/CODE REDEMPTION SYSTEM** (Week 9-10) ✅ **COMPLETED**
+
+**Priority: HIGH**
+
+#### 7.1 Database Schema Enhancement ✅ **COMPLETED**
+
+- [x] **Update Prisma Schema** ✅ **COMPLETED**
+  - [x] Add `Coupon` model with three types (CREDIT_TOPUP, SUBSCRIPTION_DISCOUNT, FREE_SERVICE) ✅
+  - [x] Add `CouponRedemption` model for audit trail ✅
+  - [x] Add `COUPON_REDEMPTION` transaction type ✅
+  - [x] Update relations between User, Transaction, and Subscription models ✅
+- [x] **Database Migration** ✅ **COMPLETED**
+  - [x] Run: `npx prisma db push` ✅
+  - [x] Verify new tables created ✅
+
+#### 7.2 Coupon Service Implementation ✅ **COMPLETED**
+
+- [x] **Create Service Files** ✅ **COMPLETED**
+  - [x] `src/services/coupon.service.js` ✅
+  - [x] `src/validations/coupon.validation.js` ✅
+- [x] **Implement Core Functions** ✅ **COMPLETED**
+  - [x] `validateCoupon()` - Pre-validation without redemption ✅
+  - [x] `redeemCreditTopupCoupon()` - Credit addition for billing page ✅
+  - [x] `calculateSubscriptionDiscount()` - Discount calculation for checkout ✅
+  - [x] `applySubscriptionDiscount()` - Apply discount during subscription creation ✅
+  - [x] `redeemFreeServiceCoupon()` - Free service redemption ✅
+  - [x] `getUserRedemptionHistory()` - User's coupon history ✅
+
+#### 7.3 User Coupon Endpoints ✅ **COMPLETED**
+
+- [x] **Update Controller Files** ✅ **COMPLETED**
+  - [x] `src/controllers/wallet.controller.js` (added 3 coupon endpoints) ✅
+- [x] **Update Route Files** ✅ **COMPLETED**
+  - [x] `src/routes/wallet.routes.js` (added coupon routes) ✅
+- [x] **Create Test Files** ✅ **COMPLETED**
+  - [x] `rest/coupon.rest` (35 comprehensive test scenarios) ✅
+- [x] **Implement API Endpoints** ✅ **COMPLETED**
+  - [x] `POST /api/wallet/validate-coupon` - Validate coupon before use ✅
+  - [x] `POST /api/wallet/redeem-coupon` - Redeem credit top-up coupons ✅
+  - [x] `GET /api/wallet/coupon-history` - User's redemption history ✅
+
+#### 7.4 Admin Coupon Management ✅ **COMPLETED**
+
+- [x] **Create Controller Files** ✅ **COMPLETED**
+  - [x] `src/controllers/admin/coupon.controller.js` (7 endpoints) ✅
+- [x] **Create Route Files** ✅ **COMPLETED**
+  - [x] `src/routes/admin/coupon.routes.js` ✅
+- [x] **Create Validation Files** ✅ **COMPLETED**
+  - [x] `src/validations/admin/coupon.validation.js` ✅
+- [x] **Implement Admin API Endpoints** ✅ **COMPLETED**
+  - [x] `POST /api/admin/coupons` - Create new coupons ✅
+  - [x] `GET /api/admin/coupons` - List/search/filter coupons ✅
+  - [x] `GET /api/admin/coupons/:id` - Get coupon details ✅
+  - [x] `PUT /api/admin/coupons/:id` - Update coupon settings ✅
+  - [x] `DELETE /api/admin/coupons/:id` - Delete unused coupons ✅
+  - [x] `GET /api/admin/coupons/statistics` - Coupon usage analytics ✅
+  - [x] `PUT /api/admin/coupons/bulk-status` - Bulk status updates ✅
+
+#### 7.5 Subscription Integration ✅ **COMPLETED**
+
+- [x] **Update Service Files** ✅ **COMPLETED**
+  - [x] `src/services/subscription.service.js` (added coupon support) ✅
+- [x] **Features Implementation** ✅ **COMPLETED**
+  - [x] Coupon discount calculation during subscription creation ✅
+  - [x] Free service coupon support ✅
+  - [x] Transaction audit trail with coupon metadata ✅
+  - [x] Proper credit deduction with discount application ✅
+
+#### 7.6 Sample Data & Testing ✅ **COMPLETED**
+
+- [x] **Create Seed Files** ✅ **COMPLETED**
+  - [x] `prisma/seed-coupons.js` (sample coupon data) ✅
+- [x] **Test All Features** ✅ **COMPLETED**
+  - [x] Credit top-up coupons (billing page) ✅
+  - [x] Subscription discount coupons (checkout page) ✅
+  - [x] Free service coupons ✅
+  - [x] Admin management tools ✅
+  - [x] Error handling and race condition protection ✅
+
+---
+
 ## 🔍 CURRENT CODEBASE ANALYSIS
 
 ### **✅ ALREADY IMPLEMENTED**
@@ -551,7 +635,7 @@ Based on current codebase analysis:
 
 ## 📊 PROGRESS TRACKING
 
-**Overall Progress: 95% Complete** ⬆️ **INCREASED FROM 90%**
+**Overall Progress: 98% Complete** ⬆️ **INCREASED FROM 95%**
 
 - ✅ **Foundation (20%)**: Express app, auth, K8s monitoring, database setup
 - ✅ **Service Catalog (20%)**: Database models ✅, Core services ✅, API endpoints ✅
@@ -559,10 +643,11 @@ Based on current codebase analysis:
 - ✅ **Subscriptions (15%)**: Database models ✅, Core services ✅, User APIs ✅, Admin APIs ✅
 - ✅ **Service Provisioning (15%)**: Kubernetes deployment automation ✅, Instance management ✅, Health monitoring ✅
 - ✅ **Advanced Service Control (10%)**: Real-time log streaming ✅, Retry provisioning ✅, Restart functionality ✅, STOP/START functionality ✅
-- ❌ **Auto-Renewal System (3%)**: Billing automation needed
-- ❌ **Admin & Analytics (2%)**: Management interfaces and reporting needed
+- ✅ **Auto-Renewal System (3%)**: Billing automation ✅, Grace periods ✅, Notifications ✅, Admin controls ✅
+- ✅ **Coupon/Code Redemption System (2%)**: Three coupon types ✅, Admin management ✅, User redemption ✅, Transaction safety ✅
+- ❌ **Admin & Analytics (0%)**: Management interfaces and reporting needed
 
-**Current Status**: Phase 5 Advanced Service Control Features ✅ COMPLETED - Ready for Phase 6 Auto-Renewal System
+**Current Status**: Phase 8 Coupon/Code Redemption System ✅ COMPLETED - Ready for Phase 7 Admin & Analytics
 
 ---
 
@@ -581,24 +666,25 @@ Based on current codebase analysis:
 - [ ] ❌ **PENDING**: Feature not started
 - [~] 🔄 **IN PROGRESS**: Feature partially implemented
 
-**Last Updated**: 2025-08-27 (Phase 5 Advanced Service Control Features COMPLETED)
+**Last Updated**: 2025-08-30 (Phase 7 Coupon/Code Redemption System COMPLETED)
 **Next Review**: Weekly on Mondays
 
 ---
 
 ## 🎯 CURRENT PROJECT STATUS SUMMARY
 
-### **✅ COMPLETED PHASES (1-5)**
+### **✅ COMPLETED PHASES (1-6, 8)**
 
 - **Phase 1**: Database & Core Models ✅ **COMPLETED**
 - **Phase 2**: Public Catalog API ✅ **COMPLETED**
 - **Phase 3**: Subscription System ✅ **COMPLETED**
 - **Phase 4**: Kubernetes Integration ✅ **COMPLETED**
 - **Phase 5**: Advanced Service Control Features ✅ **COMPLETED**
+- **Phase 6**: Auto-Renewal System ✅ **COMPLETED**
+- **Phase 8**: Coupon/Code Redemption System ✅ **COMPLETED**
 
-### **🔄 NEXT PRIORITIES (Phases 6-7)**
+### **🔄 NEXT PRIORITIES (Phase 7)**
 
-- **Phase 6**: Auto-Renewal System (Billing automation, enhanced upgrades)
 - **Phase 7**: Admin & Analytics (Management interfaces, reporting)
 
 ### **📈 KEY ACHIEVEMENTS**
@@ -608,5 +694,8 @@ Based on current codebase analysis:
 - **Real-time Features**: Socket.IO log streaming and metrics polling
 - **Production-Ready**: Comprehensive error handling, testing, and documentation
 - **Kubernetes Integration**: Automated provisioning, health monitoring, and lifecycle management
+- **Coupon/Code Redemption System**: Three coupon types (CREDIT_TOPUP, SUBSCRIPTION_DISCOUNT, FREE_SERVICE) with complete admin management
+- **Auto-Renewal System**: Automated billing with grace periods, notifications, and admin controls
+- **Transaction Safety**: Race condition protection and atomic operations throughout
 
-**The MinisPod backend now provides a complete PaaS platform with advanced service control capabilities, ready for production deployment with comprehensive subscription management, payment processing, and Kubernetes orchestration.**
+**The MinisPod backend now provides a complete PaaS platform with advanced service control capabilities, automated billing, and flexible coupon system. Only Phase 7 (Admin & Analytics) remains to be implemented for full production readiness with comprehensive subscription management, payment processing, Kubernetes orchestration, and promotional capabilities.**

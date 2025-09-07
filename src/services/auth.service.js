@@ -2,6 +2,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 import prisma from "../utils/prisma.js";
+import googleConfig from "../config/google.js";
+import welcomeBonusService from "./welcomeBonus.service.js";
 
 const register = async (userData) => {
   const { name, email, phone, password, avatar } = userData;
@@ -40,6 +42,39 @@ const register = async (userData) => {
       updatedAt: true,
     },
   });
+
+  // Apply welcome bonus coupons (if any available)
+  try {
+    const welcomeBonusResult = await welcomeBonusService.applyWelcomeBonuses(
+      user.id
+    );
+    if (welcomeBonusResult.totalCreditAdded > 0) {
+      // Refresh user data to get updated credit balance
+      const updatedUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+          avatar: true,
+          isActive: true,
+          isGoogleUser: true,
+          emailVerified: true,
+          creditBalance: true,
+          totalTopUp: true,
+          totalSpent: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+      user = updatedUser;
+    }
+  } catch (error) {
+    // Log error but don't fail registration
+    console.error("Welcome bonus application failed:", error);
+  }
 
   // Generate JWT token
   const accessToken = generateAccessToken(user.id);
@@ -149,6 +184,16 @@ const refreshAccessToken = async (refreshToken) => {
   };
 };
 
+const logout = async (refreshToken) => {
+  // Only revoke refresh token if provided
+  if (refreshToken) {
+    await prisma.refreshToken.deleteMany({
+      where: { token: refreshToken },
+    });
+  }
+  // If no refresh token provided, logout is still successful (client-side token removal)
+};
+
 const revokeRefreshToken = async (refreshToken) => {
   await prisma.refreshToken.deleteMany({
     where: { token: refreshToken },
@@ -172,7 +217,7 @@ const generateRefreshToken = async (userId) => {
   const expiresAt = new Date();
   // Parse refresh token expiration from env (e.g., "7d" -> 7 days)
   const refreshExpiresIn = process.env.JWT_REFRESH_EXPIRES_IN || "7d";
-  const days = parseInt(refreshExpiresIn.replace('d', '')) || 7;
+  const days = parseInt(refreshExpiresIn.replace("d", "")) || 7;
   expiresAt.setDate(expiresAt.getDate() + days);
 
   const refreshToken = await prisma.refreshToken.create({
@@ -194,9 +239,262 @@ const verifyToken = (token) => {
   }
 };
 
+const googleLogin = async (idToken) => {
+  // Verify Google token and extract user info
+  const googleUserInfo = await googleConfig.verifyGoogleToken(idToken);
+
+  // Check if user already exists with this Google ID
+  let user = await prisma.user.findUnique({
+    where: { googleId: googleUserInfo.googleId },
+  });
+
+  if (user) {
+    // User exists, check if account is active
+    if (!user.isActive) {
+      throw new Error("Account is deactivated. Please contact administrator.");
+    }
+
+    // Update user info from Google (in case profile changed)
+    user = await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        name: googleUserInfo.name,
+        avatar: googleUserInfo.avatar,
+        emailVerified: googleUserInfo.emailVerified,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        avatar: true,
+        isActive: true,
+        isGoogleUser: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  } else {
+    // Check if user exists with same email (regular account)
+    const existingUser = await prisma.user.findUnique({
+      where: { email: googleUserInfo.email },
+    });
+
+    if (existingUser) {
+      // Link Google account to existing user
+      user = await prisma.user.update({
+        where: { id: existingUser.id },
+        data: {
+          googleId: googleUserInfo.googleId,
+          isGoogleUser: true,
+          emailVerified: googleUserInfo.emailVerified,
+          avatar: googleUserInfo.avatar || existingUser.avatar,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+          avatar: true,
+          isActive: true,
+          isGoogleUser: true,
+          emailVerified: true,
+          creditBalance: true,
+          totalTopUp: true,
+          totalSpent: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    } else {
+      // Create new user from Google account
+      user = await prisma.user.create({
+        data: {
+          name: googleUserInfo.name,
+          email: googleUserInfo.email,
+          googleId: googleUserInfo.googleId,
+          isGoogleUser: true,
+          emailVerified: googleUserInfo.emailVerified,
+          avatar: googleUserInfo.avatar,
+          password: null, // No password for Google users
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          phone: true,
+          role: true,
+          avatar: true,
+          isActive: true,
+          isGoogleUser: true,
+          emailVerified: true,
+          creditBalance: true,
+          totalTopUp: true,
+          totalSpent: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+
+      // Apply welcome bonus coupons for new Google users
+      try {
+        const welcomeBonusResult =
+          await welcomeBonusService.applyWelcomeBonuses(user.id);
+        if (welcomeBonusResult.totalCreditAdded > 0) {
+          // Refresh user data to get updated credit balance
+          const updatedUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              role: true,
+              avatar: true,
+              isActive: true,
+              isGoogleUser: true,
+              emailVerified: true,
+              creditBalance: true,
+              totalTopUp: true,
+              totalSpent: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          });
+          user = updatedUser;
+        }
+      } catch (error) {
+        // Log error but don't fail registration
+        console.error(
+          "Welcome bonus application failed for Google user:",
+          error
+        );
+      }
+    }
+  }
+
+  // Generate JWT tokens
+  const accessToken = generateAccessToken(user.id);
+  const refreshToken = await generateRefreshToken(user.id);
+
+  return {
+    user,
+    accessToken,
+    refreshToken: refreshToken.token,
+  };
+};
+
+const linkGoogleAccount = async (userId, idToken) => {
+  // Verify Google token and extract user info
+  const googleUserInfo = await googleConfig.verifyGoogleToken(idToken);
+
+  // Check if Google account is already linked to another user
+  const existingGoogleUser = await prisma.user.findUnique({
+    where: { googleId: googleUserInfo.googleId },
+  });
+
+  if (existingGoogleUser && existingGoogleUser.id !== userId) {
+    throw new Error("This Google account is already linked to another user");
+  }
+
+  // Check if the email matches
+  const currentUser = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!currentUser) {
+    throw new Error("User not found");
+  }
+
+  if (currentUser.email !== googleUserInfo.email) {
+    throw new Error("Google account email does not match your account email");
+  }
+
+  // Link Google account to current user
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      googleId: googleUserInfo.googleId,
+      isGoogleUser: true,
+      emailVerified: googleUserInfo.emailVerified,
+      avatar: googleUserInfo.avatar || currentUser.avatar,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      role: true,
+      avatar: true,
+      isActive: true,
+      isGoogleUser: true,
+      emailVerified: true,
+      creditBalance: true,
+      totalTopUp: true,
+      totalSpent: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  return updatedUser;
+};
+
+const unlinkGoogleAccount = async (userId) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  if (!user.isGoogleUser || !user.googleId) {
+    throw new Error("No Google account linked to this user");
+  }
+
+  // Check if user has a password (can still login without Google)
+  if (!user.password) {
+    throw new Error(
+      "Cannot unlink Google account. Please set a password first to maintain account access."
+    );
+  }
+
+  // Unlink Google account
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      googleId: null,
+      isGoogleUser: false,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      phone: true,
+      role: true,
+      avatar: true,
+      isActive: true,
+      isGoogleUser: true,
+      emailVerified: true,
+      creditBalance: true,
+      totalTopUp: true,
+      totalSpent: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  return updatedUser;
+};
+
 export default {
   register,
   login,
+  logout,
   getUserById,
   refreshAccessToken,
   revokeRefreshToken,
@@ -204,4 +502,7 @@ export default {
   generateAccessToken,
   generateRefreshToken,
   verifyToken,
+  googleLogin,
+  linkGoogleAccount,
+  unlinkGoogleAccount,
 };

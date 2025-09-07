@@ -1,0 +1,306 @@
+
+### Support Ticket System - User Endpoints
+### Base URL: http://localhost:3000/api
+
+### Variables
+@baseUrl = http://localhost:3000/api
+@userToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWVxeGozangwMDAxdnZ6Y2piNWt4MzZ2IiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc1NjYyOTkwMSwiZXhwIjoxNzU2NzE2MzAxfQ.EQVD_cjc560pM6cTYS4966E62TurYkaLxcehPBV3geQ
+@adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWVxeGozanAwMDAwdnZ6Y2Jmb2puaW4xIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc1NjYyOTg5MCwiZXhwIjoxNzU2NzE2MjkwfQ.UFby1lncLNuFd2AcNpOltjhv6cPnPYCSX4xl55zx218
+@ticketId = cm0abc123def456ghi789jkl
+@attachmentId = cm0xyz789abc123def456ghi
+
+### ============================================================================
+### AUTHENTICATION SETUP
+### ============================================================================
+
+### 1. User Login (Get User Token)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "user1@minispod.com",
+  "password": "password123"
+}
+
+### 2. Admin Login (Get Admin Token)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+### ============================================================================
+### USER TICKET ENDPOINTS
+### ============================================================================
+
+### 3. Get User Ticket Statistics
+GET {{baseUrl}}/tickets/stats
+Authorization: Bearer {{userToken}}
+
+### 4. Get User's Tickets (Default Pagination)
+GET {{baseUrl}}/tickets
+Authorization: Bearer {{userToken}}
+
+### 5. Get User's Tickets with Pagination
+GET {{baseUrl}}/tickets?page=1&limit=5
+Authorization: Bearer {{userToken}}
+
+### 6. Get User's Open Tickets Only
+GET {{baseUrl}}/tickets?status=OPEN
+Authorization: Bearer {{userToken}}
+
+### 7. Get User's Closed Tickets Only
+GET {{baseUrl}}/tickets?status=CLOSED
+Authorization: Bearer {{userToken}}
+
+### 7.1. Get User's In-Progress Tickets Only
+GET {{baseUrl}}/tickets?status=IN_PROGRESS
+Authorization: Bearer {{userToken}}
+
+### 8. Create New Ticket (Text Only)
+POST {{baseUrl}}/tickets
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "subject": "Unable to access my N8N service",
+  "description": "I'm experiencing issues accessing my N8N automation service. The service appears to be running but I get a 502 error when trying to access the web interface. This started happening after the recent maintenance window."
+}
+
+### 9. Create New Ticket with Image Upload (Multipart Form Data)
+POST {{baseUrl}}/tickets
+Authorization: Bearer {{userToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="subject"
+
+Service deployment failed with error
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="description"
+
+My Ghost blog service failed to deploy. I'm getting an error message that I've attached as a screenshot. The deployment has been stuck in "PROVISIONING" status for over 30 minutes.
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="error-screenshot.png"
+Content-Type: image/png
+
+< ./test-images/error-screenshot.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 10. Get Specific Ticket by ID
+GET {{baseUrl}}/tickets/{{ticketId}}
+Authorization: Bearer {{userToken}}
+
+### 11. Add Message to Ticket (Text Only)
+POST {{baseUrl}}/tickets/{{ticketId}}/messages
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "content": "I've tried restarting the service but the issue persists. The error logs show a database connection timeout. Could you please check the database connectivity?"
+}
+
+### 12. Add Message with Image Attachment
+POST {{baseUrl}}/tickets/{{ticketId}}/messages
+Authorization: Bearer {{userToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="content"
+
+Here are the additional error logs I found in the console. The issue seems to be related to SSL certificate validation.
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="console-logs.png"
+Content-Type: image/png
+
+< ./test-images/console-logs.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 13. Close Ticket (User can close their own ticket)
+PUT {{baseUrl}}/tickets/{{ticketId}}/close
+Authorization: Bearer {{userToken}}
+
+### 14. Try to Close Already Closed Ticket (Should Fail)
+PUT {{baseUrl}}/tickets/{{ticketId}}/close
+Authorization: Bearer {{userToken}}
+
+### 15. Download Attachment
+GET {{baseUrl}}/tickets/attachments/{{attachmentId}}
+Authorization: Bearer {{userToken}}
+
+### ============================================================================
+### ERROR HANDLING TESTS
+### ============================================================================
+
+### 16. Create Ticket with Missing Subject (Should Fail)
+POST {{baseUrl}}/tickets
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "description": "This ticket is missing a subject field"
+}
+
+### 17. Create Ticket with Short Subject (Should Fail)
+POST {{baseUrl}}/tickets
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "subject": "Hi",
+  "description": "Subject is too short, should be at least 5 characters"
+}
+
+### 18. Create Ticket with Long Subject (Should Fail)
+POST {{baseUrl}}/tickets
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "subject": "This is an extremely long subject that exceeds the maximum allowed length of 200 characters. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+  "description": "This subject is too long and should be rejected"
+}
+
+### 19. Create Ticket with Short Description (Should Fail)
+POST {{baseUrl}}/tickets
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "subject": "Valid subject here",
+  "description": "Too short"
+}
+
+### 20. Add Empty Message (Should Fail)
+POST {{baseUrl}}/tickets/{{ticketId}}/messages
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "content": ""
+}
+
+### 21. Access Non-existent Ticket (Should Fail)
+GET {{baseUrl}}/tickets/non-existent-ticket-id
+Authorization: Bearer {{userToken}}
+
+### 22. Access Another User's Ticket (Should Fail)
+GET {{baseUrl}}/tickets/another-users-ticket-id
+Authorization: Bearer {{userToken}}
+
+### 23. Download Non-existent Attachment (Should Fail)
+GET {{baseUrl}}/tickets/attachments/non-existent-attachment-id
+Authorization: Bearer {{userToken}}
+
+### 24. Close Non-existent Ticket (Should Fail)
+PUT {{baseUrl}}/tickets/non-existent-ticket-id/close
+Authorization: Bearer {{userToken}}
+
+### 25. Close Another User's Ticket (Should Fail)
+PUT {{baseUrl}}/tickets/another-users-ticket-id/close
+Authorization: Bearer {{userToken}}
+
+### 26. Access Ticket Without Authentication (Should Fail)
+GET {{baseUrl}}/tickets
+
+### 27. Create Ticket Without Authentication (Should Fail)
+POST {{baseUrl}}/tickets
+Content-Type: application/json
+
+{
+  "subject": "This should fail without auth",
+  "description": "No authentication token provided"
+}
+
+### ============================================================================
+### FILE UPLOAD VALIDATION TESTS
+### ============================================================================
+
+### 28. Upload Invalid File Type (Should Fail)
+POST {{baseUrl}}/tickets
+Authorization: Bearer {{userToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="subject"
+
+Test invalid file upload
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="description"
+
+Testing upload of non-image file
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="document.pdf"
+Content-Type: application/pdf
+
+< ./test-files/document.pdf
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 29. Upload Multiple Valid Images
+POST {{baseUrl}}/tickets
+Authorization: Bearer {{userToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="subject"
+
+Multiple image attachments test
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="description"
+
+Testing upload of multiple image files
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="screenshot1.png"
+Content-Type: image/png
+
+< ./test-images/screenshot1.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="screenshot2.jpg"
+Content-Type: image/jpeg
+
+< ./test-images/screenshot2.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="diagram.gif"
+Content-Type: image/gif
+
+< ./test-images/diagram.gif
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ============================================================================
+### PAGINATION TESTS
+### ============================================================================
+
+### 30. Test Large Page Number
+GET {{baseUrl}}/tickets?page=999&limit=10
+Authorization: Bearer {{userToken}}
+
+### 31. Test Maximum Limit
+GET {{baseUrl}}/tickets?page=1&limit=100
+Authorization: Bearer {{userToken}}
+
+### 32. Test Limit Exceeding Maximum (Should Use Default)
+GET {{baseUrl}}/tickets?page=1&limit=200
+Authorization: Bearer {{userToken}}
+
+### 33. Test Invalid Page Number (Should Use Default)
+GET {{baseUrl}}/tickets?page=0&limit=10
+Authorization: Bearer {{userToken}}
+
+### 34. Test Invalid Limit (Should Use Default)
+GET {{baseUrl}}/tickets?page=1&limit=-5
+Authorization: Bearer {{userToken}}
+
+### ============================================================================
+### EDGE CASES
+### ============================================================================
+
+### 35. Create Ticket with Maximum Length Subject and Description
+POST {{baseUrl}}/tickets
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "subject": "This is a subject that is exactly at the maximum allowed length of 200 characters. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
+  "description": "This is a description that tests the maximum allowed length of 2000 characters. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur? At vero eos et accusamus et iusto odio dignissimos

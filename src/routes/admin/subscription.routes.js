@@ -90,4 +90,15 @@ router.put(
   adminSubscriptionController.expireSubscription
 );
 
+/**
+ * @route   PUT /api/admin/subscriptions/:subscriptionId
+ * @desc    Update subscription details freely (admin only)
+ * @access  Admin only
+ */
+router.put(
+  "/:subscriptionId",
+  validate(adminSubscriptionValidation.updateSubscription),
+  adminSubscriptionController.updateSubscription
+);
+
 export default router;

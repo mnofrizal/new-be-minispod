@@ -1,0 +1,285 @@
+### Admin Analytics API Tests
+### Base URL: http://localhost:3000/api/admin/analytics
+
+### Variables
+@baseUrl = http://localhost:3000/api
+@adminToken = {{login_admin.response.body.data.accessToken}}
+
+### ============================================
+### AUTHENTICATION - Get Admin Token
+### ============================================
+
+### Admin Login
+# @name login_admin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+### ============================================
+### DASHBOARD ANALYTICS
+### ============================================
+
+### Get Dashboard Analytics (Overview)
+GET {{baseUrl}}/admin/analytics/dashboard
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### REVENUE ANALYTICS
+### ============================================
+
+### Get Revenue Analytics (Default - 30 days)
+GET {{baseUrl}}/admin/analytics/revenue
+Authorization: Bearer {{adminToken}}
+
+### Get Revenue Analytics (7 days)
+GET {{baseUrl}}/admin/analytics/revenue?period=7d
+Authorization: Bearer {{adminToken}}
+
+### Get Revenue Analytics (90 days)
+GET {{baseUrl}}/admin/analytics/revenue?period=90d
+Authorization: Bearer {{adminToken}}
+
+### Get Revenue Analytics (1 year)
+GET {{baseUrl}}/admin/analytics/revenue?period=1y
+Authorization: Bearer {{adminToken}}
+
+### Get Revenue Analytics (Custom Date Range)
+GET {{baseUrl}}/admin/analytics/revenue?startDate=2024-08-01&endDate=2024-08-30
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### SUBSCRIPTION ANALYTICS
+### ============================================
+
+### Get Subscription Analytics (Default - 30 days)
+GET {{baseUrl}}/admin/analytics/subscriptions
+Authorization: Bearer {{adminToken}}
+
+### Get Subscription Analytics (7 days)
+GET {{baseUrl}}/admin/analytics/subscriptions?period=7d
+Authorization: Bearer {{adminToken}}
+
+### Get Subscription Analytics (90 days)
+GET {{baseUrl}}/admin/analytics/subscriptions?period=90d
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### USER ANALYTICS
+### ============================================
+
+### Get User Analytics (Default - 30 days)
+GET {{baseUrl}}/admin/analytics/users
+Authorization: Bearer {{adminToken}}
+
+### Get User Analytics (7 days)
+GET {{baseUrl}}/admin/analytics/users?period=7d
+Authorization: Bearer {{adminToken}}
+
+### Get User Analytics (90 days)
+GET {{baseUrl}}/admin/analytics/users?period=90d
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### SERVICE CONTROL METRICS
+### ============================================
+
+### Get Service Control Metrics (Default - 30 days)
+GET {{baseUrl}}/admin/analytics/service-control
+Authorization: Bearer {{adminToken}}
+
+### Get Service Control Metrics (7 days)
+GET {{baseUrl}}/admin/analytics/service-control?period=7d
+Authorization: Bearer {{adminToken}}
+
+### Get Service Control Metrics (90 days)
+GET {{baseUrl}}/admin/analytics/service-control?period=90d
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### VALIDATION TESTS
+### ============================================
+
+### Invalid Period Parameter
+GET {{baseUrl}}/admin/analytics/revenue?period=invalid
+Authorization: Bearer {{adminToken}}
+
+### Invalid Date Format
+GET {{baseUrl}}/admin/analytics/revenue?startDate=invalid-date&endDate=2024-08-30
+Authorization: Bearer {{adminToken}}
+
+### End Date Before Start Date
+GET {{baseUrl}}/admin/analytics/revenue?startDate=2024-08-30&endDate=2024-08-01
+Authorization: Bearer {{adminToken}}
+
+### Missing End Date (when start date provided)
+GET {{baseUrl}}/admin/analytics/revenue?startDate=2024-08-01
+Authorization: Bearer {{adminToken}}
+
+### Missing Start Date (when end date provided)
+GET {{baseUrl}}/admin/analytics/revenue?endDate=2024-08-30
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### AUTHORIZATION TESTS
+### ============================================
+
+### Access without token (should fail)
+GET {{baseUrl}}/admin/analytics/dashboard
+
+### Access with invalid token (should fail)
+GET {{baseUrl}}/admin/analytics/dashboard
+Authorization: Bearer invalid-token
+
+### ============================================
+### COMPREHENSIVE ANALYTICS TESTING
+### ============================================
+
+### Test All Analytics Endpoints with Different Periods
+
+### Dashboard Analytics
+GET {{baseUrl}}/admin/analytics/dashboard
+Authorization: Bearer {{adminToken}}
+
+### Revenue Analytics - All Periods
+GET {{baseUrl}}/admin/analytics/revenue?period=7d
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{baseUrl}}/admin/analytics/revenue?period=30d
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{baseUrl}}/admin/analytics/revenue?period=90d
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{baseUrl}}/admin/analytics/revenue?period=1y
+Authorization: Bearer {{adminToken}}
+
+### Subscription Analytics - All Periods
+GET {{baseUrl}}/admin/analytics/subscriptions?period=7d
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{baseUrl}}/admin/analytics/subscriptions?period=30d
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{baseUrl}}/admin/analytics/subscriptions?period=90d
+Authorization: Bearer {{adminToken}}
+
+### User Analytics - All Periods
+GET {{baseUrl}}/admin/analytics/users?period=7d
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{baseUrl}}/admin/analytics/users?period=30d
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{baseUrl}}/admin/analytics/users?period=90d
+Authorization: Bearer {{adminToken}}
+
+### Service Control Metrics - All Periods
+GET {{baseUrl}}/admin/analytics/service-control?period=7d
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{baseUrl}}/admin/analytics/service-control?period=30d
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{baseUrl}}/admin/analytics/service-control?period=90d
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### CUSTOM DATE RANGE TESTING
+### ============================================
+
+### Last Week
+GET {{baseUrl}}/admin/analytics/revenue?startDate=2024-08-23&endDate=2024-08-30
+Authorization: Bearer {{adminToken}}
+
+### Last Month
+GET {{baseUrl}}/admin/analytics/subscriptions?startDate=2024-07-30&endDate=2024-08-30
+Authorization: Bearer {{adminToken}}
+
+### Quarter Analysis
+GET {{baseUrl}}/admin/analytics/users?startDate=2024-06-01&endDate=2024-08-30
+Authorization: Bearer {{adminToken}}
+
+### Year-to-Date
+GET {{baseUrl}}/admin/analytics/revenue?startDate=2024-01-01&endDate=2024-08-30
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### PERFORMANCE TESTING
+### ============================================
+
+### Large Date Range (1 Year)
+GET {{baseUrl}}/admin/analytics/revenue?startDate=2023-08-30&endDate=2024-08-30
+Authorization: Bearer {{adminToken}}
+
+### Multiple Concurrent Requests
+GET {{baseUrl}}/admin/analytics/dashboard
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{baseUrl}}/admin/analytics/revenue
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{baseUrl}}/admin/analytics/subscriptions
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{baseUrl}}/admin/analytics/users
+Authorization: Bearer {{adminToken}}
+
+###
+GET {{baseUrl}}/admin/analytics/service-control
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### EDGE CASES
+### ============================================
+
+### Future Date Range
+GET {{baseUrl}}/admin/analytics/revenue?startDate=2025-01-01&endDate=2025-12-31
+Authorization: Bearer {{adminToken}}
+
+### Single Day Analysis
+GET {{baseUrl}}/admin/analytics/subscriptions?startDate=2024-08-30&endDate=2024-08-30
+Authorization: Bearer {{adminToken}}
+
+### Very Old Date Range
+GET {{baseUrl}}/admin/analytics/users?startDate=2020-01-01&endDate=2020-12-31
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### FINAL COMPREHENSIVE CHECK
+### ============================================
+
+### Final Dashboard Check
+GET {{baseUrl}}/admin/analytics/dashboard
+Authorization: Bearer {{adminToken}}
+
+### Final Revenue Summary
+GET {{baseUrl}}/admin/analytics/revenue?period=30d
+Authorization: Bearer {{adminToken}}
+
+### Final Subscription Summary
+GET {{baseUrl}}/admin/analytics/subscriptions?period=30d
+Authorization: Bearer {{adminToken}}
+
+### Final User Summary
+GET {{baseUrl}}/admin/analytics/users?period=30d
+Authorization: Bearer {{adminToken}}
+
+### Final Service Control Summary
+GET {{baseUrl}}/admin/analytics/service-control?period=30d
+Authorization: Bearer {{adminToken}}

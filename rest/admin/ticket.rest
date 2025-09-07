@@ -1,0 +1,377 @@
+### Support Ticket System - Admin Endpoints
+### Base URL: http://localhost:3000/api
+
+### Variables
+@baseUrl = http://localhost:3000/api
+@adminToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbWVxeGozanAwMDAwdnZ6Y2Jmb2puaW4xIiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc1NjYzMDI0NiwiZXhwIjoxNzU2NzE2NjQ2fQ.Df_qhineD-i2gm9Lj3ahlIJticOabG0UZeyzDXnRgEM
+@userToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiJjbGZxdTBhNGIwMDAwdXY0YXpiOXBlczQ0IiwiaWF0IjoxNjg0MjM0NTY3LCJleHAiOjE2ODQzMjA5Njd9.user_example
+@ticketId = cm0abc123def456ghi789jkl
+@userId = cm0user123def456ghi789jkl
+@attachmentId = cm0xyz789abc123def456ghi
+
+### ============================================================================
+### AUTHENTICATION SETUP
+### ============================================================================
+
+### 1. Admin Login (Get Admin Token)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+### ============================================================================
+### ADMIN TICKET STATISTICS
+### ============================================================================
+
+### 2. Get Comprehensive Ticket Statistics
+GET {{baseUrl}}/admin/tickets/stats
+Authorization: Bearer {{adminToken}}
+
+### ============================================================================
+### ADMIN TICKET MANAGEMENT
+### ============================================================================
+
+### 3. Get All Tickets (Default Pagination)
+GET {{baseUrl}}/admin/tickets
+Authorization: Bearer {{adminToken}}
+
+### 4. Get All Tickets with Pagination
+GET {{baseUrl}}/admin/tickets?page=1&limit=20
+Authorization: Bearer {{adminToken}}
+
+### 5. Get All Open Tickets
+GET {{baseUrl}}/admin/tickets?status=OPEN
+Authorization: Bearer {{adminToken}}
+
+### 6. Get All Closed Tickets
+GET {{baseUrl}}/admin/tickets?status=CLOSED
+Authorization: Bearer {{adminToken}}
+
+### 6.1. Get All In-Progress Tickets
+GET {{baseUrl}}/admin/tickets?status=IN_PROGRESS
+Authorization: Bearer {{adminToken}}
+
+### 7. Get Tickets by Specific User
+GET {{baseUrl}}/admin/tickets?userId={{userId}}
+Authorization: Bearer {{adminToken}}
+
+### 8. Get Tickets by User with Status Filter
+GET {{baseUrl}}/admin/tickets?userId={{userId}}&status=OPEN
+Authorization: Bearer {{adminToken}}
+
+### 9. Get Specific Ticket by ID (Admin View)
+GET {{baseUrl}}/admin/tickets/{{ticketId}}
+Authorization: Bearer {{adminToken}}
+
+### 10. Get Tickets by User ID (Alternative Endpoint)
+GET {{baseUrl}}/admin/tickets/user/{{userId}}
+Authorization: Bearer {{adminToken}}
+
+### 11. Get User Tickets with Pagination
+GET {{baseUrl}}/admin/tickets/user/{{userId}}?page=1&limit=5
+Authorization: Bearer {{adminToken}}
+
+### ============================================================================
+### ADMIN RESPONSES
+### ============================================================================
+
+### 12. Add Admin Response (Text Only)
+POST {{baseUrl}}/admin/tickets/{{ticketId}}/messages
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "content": "Thank you for reporting this issue. I've reviewed your N8N service configuration and found that the database connection pool was exhausted. I've increased the connection limit and restarted the service. Please try accessing your service again and let me know if the issue persists."
+}
+
+### 13. Add Admin Response with Image Attachment
+POST {{baseUrl}}/admin/tickets/{{ticketId}}/messages
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="content"
+
+I've attached a screenshot showing the current service status and resource usage. As you can see, the service is now running normally with healthy resource consumption. The SSL certificate has also been renewed automatically.
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="service-status.png"
+Content-Type: image/png
+
+< ./test-images/service-status.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 14. Add Admin Response with Multiple Attachments
+POST {{baseUrl}}/admin/tickets/{{ticketId}}/messages
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="content"
+
+Here are the detailed logs and monitoring screenshots showing the resolution steps taken. The issue has been fully resolved and I'm monitoring the service for the next 24 hours to ensure stability.
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="resolution-logs.png"
+Content-Type: image/png
+
+< ./test-images/resolution-logs.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="monitoring-dashboard.jpg"
+Content-Type: image/jpeg
+
+< ./test-images/monitoring-dashboard.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ============================================================================
+### TICKET STATUS MANAGEMENT
+### ============================================================================
+
+### 15. Close Ticket
+PUT {{baseUrl}}/admin/tickets/{{ticketId}}/close
+Authorization: Bearer {{adminToken}}
+
+### 16. Reopen Ticket
+PUT {{baseUrl}}/admin/tickets/{{ticketId}}/reopen
+Authorization: Bearer {{adminToken}}
+
+### 17. Close Ticket Again (For Testing)
+PUT {{baseUrl}}/admin/tickets/{{ticketId}}/close
+Authorization: Bearer {{adminToken}}
+
+### ============================================================================
+### BULK OPERATIONS
+### ============================================================================
+
+### 18. Bulk Close Multiple Tickets
+PUT {{baseUrl}}/admin/tickets/bulk/close
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "ticketIds": [
+    "cm0ticket1abc123def456ghi",
+    "cm0ticket2def456ghi789jkl",
+    "cm0ticket3ghi789jkl012mno"
+  ]
+}
+
+### 19. Bulk Close with Invalid Ticket IDs (Partial Success)
+PUT {{baseUrl}}/admin/tickets/bulk/close
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "ticketIds": [
+    "cm0validticket123456789",
+    "invalid-ticket-id-1",
+    "invalid-ticket-id-2"
+  ]
+}
+
+### ============================================================================
+### ATTACHMENT MANAGEMENT
+### ============================================================================
+
+### 20. Download Any Attachment (Admin Access)
+GET {{baseUrl}}/admin/tickets/attachments/{{attachmentId}}
+Authorization: Bearer {{adminToken}}
+
+### 21. Download User's Attachment (Admin Can Access All)
+GET {{baseUrl}}/admin/tickets/attachments/user-attachment-id
+Authorization: Bearer {{adminToken}}
+
+### ============================================================================
+### ADVANCED FILTERING AND SEARCH
+### ============================================================================
+
+### 22. Get Tickets with Complex Filtering
+GET {{baseUrl}}/admin/tickets?page=1&limit=10&status=OPEN&userId={{userId}}
+Authorization: Bearer {{adminToken}}
+
+### 23. Get All Tickets with Large Limit
+GET {{baseUrl}}/admin/tickets?limit=100
+Authorization: Bearer {{adminToken}}
+
+### 24. Get Tickets from Specific Page
+GET {{baseUrl}}/admin/tickets?page=5&limit=10
+Authorization: Bearer {{adminToken}}
+
+### ============================================================================
+### ERROR HANDLING TESTS (ADMIN)
+### ============================================================================
+
+### 25. Access Admin Endpoints with User Token (Should Fail)
+GET {{baseUrl}}/admin/tickets
+Authorization: Bearer {{userToken}}
+
+### 26. Close Non-existent Ticket (Should Fail)
+PUT {{baseUrl}}/admin/tickets/non-existent-ticket-id/close
+Authorization: Bearer {{adminToken}}
+
+### 27. Reopen Non-existent Ticket (Should Fail)
+PUT {{baseUrl}}/admin/tickets/non-existent-ticket-id/reopen
+Authorization: Bearer {{adminToken}}
+
+### 28. Add Response to Non-existent Ticket (Should Fail)
+POST {{baseUrl}}/admin/tickets/non-existent-ticket-id/messages
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "content": "This should fail because ticket doesn't exist"
+}
+
+### 29. Bulk Close with Empty Array (Should Fail)
+PUT {{baseUrl}}/admin/tickets/bulk/close
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "ticketIds": []
+}
+
+### 30. Bulk Close without ticketIds Field (Should Fail)
+PUT {{baseUrl}}/admin/tickets/bulk/close
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "tickets": ["some-id"]
+}
+
+### 31. Access Admin Endpoints without Authentication (Should Fail)
+GET {{baseUrl}}/admin/tickets
+
+### 32. Download Non-existent Attachment (Should Fail)
+GET {{baseUrl}}/admin/tickets/attachments/non-existent-attachment-id
+Authorization: Bearer {{adminToken}}
+
+### ============================================================================
+### VALIDATION TESTS (ADMIN)
+### ============================================================================
+
+### 33. Add Empty Admin Response (Should Fail)
+POST {{baseUrl}}/admin/tickets/{{ticketId}}/messages
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "content": ""
+}
+
+### 34. Add Admin Response with Invalid Ticket ID (Should Fail)
+POST {{baseUrl}}/admin/tickets/invalid-ticket-id/messages
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "content": "This should fail due to invalid ticket ID"
+}
+
+### 35. Get Tickets with Invalid Page Number (Should Use Default)
+GET {{baseUrl}}/admin/tickets?page=-1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### 36. Get Tickets with Invalid Limit (Should Use Default)
+GET {{baseUrl}}/admin/tickets?page=1&limit=0
+Authorization: Bearer {{adminToken}}
+
+### 37. Get Tickets with Limit Exceeding Maximum (Should Use Maximum)
+GET {{baseUrl}}/admin/tickets?page=1&limit=500
+Authorization: Bearer {{adminToken}}
+
+### 38. Get Tickets with Invalid Status (Should Ignore Filter)
+GET {{baseUrl}}/admin/tickets?status=INVALID_STATUS
+Authorization: Bearer {{adminToken}}
+
+### ============================================================================
+### FILE UPLOAD VALIDATION (ADMIN)
+### ============================================================================
+
+### 39. Admin Upload Invalid File Type (Should Fail)
+POST {{baseUrl}}/admin/tickets/{{ticketId}}/messages
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="content"
+
+Testing invalid file upload as admin
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="document.txt"
+Content-Type: text/plain
+
+This is a text file that should be rejected
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 40. Admin Upload Too Many Files (Should Fail)
+POST {{baseUrl}}/admin/tickets/{{ticketId}}/messages
+Authorization: Bearer {{adminToken}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="content"
+
+Testing upload of too many files
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="image1.png"
+Content-Type: image/png
+
+< ./test-images/image1.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="image2.png"
+Content-Type: image/png
+
+< ./test-images/image2.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="image3.png"
+Content-Type: image/png
+
+< ./test-images/image3.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="image4.png"
+Content-Type: image/png
+
+< ./test-images/image4.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="image5.png"
+Content-Type: image/png
+
+< ./test-images/image5.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="attachments"; filename="image6.png"
+Content-Type: image/png
+
+< ./test-images/image6.png
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### ============================================================================
+### EDGE CASES AND STRESS TESTS
+### ============================================================================
+
+### 41. Get User Tickets for Non-existent User
+GET {{baseUrl}}/admin/tickets/user/non-existent-user-id
+Authorization: Bearer {{adminToken}}
+
+### 42. Admin Response with Maximum Length Content
+POST {{baseUrl}}/admin/tickets/{{ticketId}}/messages
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "content": "This is an admin response that tests the maximum allowed length of 2000 characters. Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit, sed quia consequuntur magni dolores eos qui ratione voluptatem sequi nesciunt. Neque porro quisquam est, qui dolorem ipsum quia dolor sit amet, consectetur, adipisci velit, sed quia non numquam eius modi tempora incidunt ut labore et dolore magnam aliquam quaerat voluptatem. Ut enim ad minima veniam, quis nostrum exercitationem ullam corporis suscipit laboriosam, nisi ut aliquid ex ea commodi consequatur? Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, vel illum qui dolorem eum fugiat quo voluptas nulla pariatur? At vero eos et accusamus et iusto odio dignissimos ducimus qui blanditiis praesentium voluptatum deleniti atque corrupti quos dolores et quas molestias excepturi sint occaecati cupiditate non provident, similique sunt in culpa qui officia deserunt mollitia animi, id est laborum et dolorum fuga. Et harum quidem rerum facilis est et expedita distinctio. Nam libero tempore, cum soluta nobis est eligendi optio cumque nihil impedit quo minus id quod maxime placeat facere possimus, omnis voluptas assumenda est, omnis dolor repellendus."
+}
+
+### 43. Close Already Closed Ticket (Should Handle Gracefully)
+PUT {{baseUrl}}/admin/tickets/{{ticketId}}/close
+Authorization: Bearer {{adminToken}}
+
+### 44. Reopen Already Open Ticket (Should Handle Gracefully)
+PUT {{baseUrl}}/admin/tickets/{{ticketId}}/reopen
+Authorization: Bearer {{adminToken}}
+
+### 45. Get Statistics After Operations
+GET {{baseUrl}}/admin/tickets/stats
+Authorization: Bearer {{adminToken}}

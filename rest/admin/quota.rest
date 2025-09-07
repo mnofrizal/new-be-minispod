@@ -1,0 +1,284 @@
+### Admin Quota Management API Tests
+### Base URL: http://localhost:3000/api/admin/quota
+
+### Variables
+@baseUrl = http://localhost:3000/api
+@adminToken = {{login_admin.response.body.data.accessToken}}
+@planId = cm0slquw90003vv4azb9pes42
+
+### ============================================
+### AUTHENTICATION - Get Admin Token
+### ============================================
+
+### Admin Login
+# @name login_admin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+### ============================================
+### QUOTA STATISTICS AND OVERVIEW
+### ============================================
+
+### Get Quota Statistics
+GET {{baseUrl}}/admin/quota/statistics
+Authorization: Bearer {{adminToken}}
+
+### Get Quota Overview
+GET {{baseUrl}}/admin/quota/overview
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### PLAN QUOTA MANAGEMENT
+### ============================================
+
+### Get Plan Quota Details
+GET {{baseUrl}}/admin/quota/plans/{{planId}}
+Authorization: Bearer {{adminToken}}
+
+### Update Plan Quota - Increase
+PUT {{baseUrl}}/admin/quota/plans/{{planId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "totalQuota": 150,
+  "reason": "Increased quota due to high demand for N8N Basic plan"
+}
+
+### Update Plan Quota - Decrease (should validate against current usage)
+PUT {{baseUrl}}/admin/quota/plans/{{planId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "totalQuota": 50,
+  "reason": "Reducing quota for testing purposes"
+}
+
+### ============================================
+### BULK QUOTA UPDATES
+### ============================================
+
+### Bulk Update Quotas - Multiple Plans
+PUT {{baseUrl}}/admin/quota/bulk-update
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "updates": [
+    {
+      "planId": "cm0slquw90003vv4azb9pes42",
+      "totalQuota": 200
+    },
+    {
+      "planId": "cm0slquw90004vv4azb9pes43",
+      "totalQuota": 100
+    }
+  ],
+  "reason": "Bulk quota adjustment for Q4 capacity planning"
+}
+
+### ============================================
+### VALIDATION TESTS
+### ============================================
+
+### Update Plan Quota - Invalid Plan ID
+PUT {{baseUrl}}/admin/quota/plans/invalid-uuid
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "totalQuota": 100,
+  "reason": "Testing invalid plan ID"
+}
+
+### Update Plan Quota - Missing Required Fields
+PUT {{baseUrl}}/admin/quota/plans/{{planId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "totalQuota": 100
+}
+
+### Update Plan Quota - Invalid Quota Value (Negative)
+PUT {{baseUrl}}/admin/quota/plans/{{planId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "totalQuota": -10,
+  "reason": "Testing negative quota"
+}
+
+### Update Plan Quota - Quota Too High
+PUT {{baseUrl}}/admin/quota/plans/{{planId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "totalQuota": 15000,
+  "reason": "Testing quota limit validation"
+}
+
+### Bulk Update - Empty Updates Array
+PUT {{baseUrl}}/admin/quota/bulk-update
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "updates": [],
+  "reason": "Testing empty updates array"
+}
+
+### Bulk Update - Too Many Updates
+PUT {{baseUrl}}/admin/quota/bulk-update
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "updates": [
+    {"planId": "cm0slquw90003vv4azb9pes42", "totalQuota": 100},
+    {"planId": "cm0slquw90004vv4azb9pes43", "totalQuota": 100}
+  ],
+  "reason": "Testing bulk update limits"
+}
+
+### ============================================
+### ERROR HANDLING TESTS
+### ============================================
+
+### Get Plan Quota Details - Non-existent Plan
+GET {{baseUrl}}/admin/quota/plans/cm0slquw90003vv4azb9pes99
+Authorization: Bearer {{adminToken}}
+
+### Update Plan Quota - Non-existent Plan
+PUT {{baseUrl}}/admin/quota/plans/cm0slquw90003vv4azb9pes99
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "totalQuota": 100,
+  "reason": "Testing non-existent plan"
+}
+
+### Bulk Update - Invalid Plan ID in Array
+PUT {{baseUrl}}/admin/quota/bulk-update
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "updates": [
+    {
+      "planId": "invalid-uuid",
+      "totalQuota": 100
+    }
+  ],
+  "reason": "Testing invalid plan ID in bulk update"
+}
+
+### Bulk Update - Non-existent Plan ID
+PUT {{baseUrl}}/admin/quota/bulk-update
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "updates": [
+    {
+      "planId": "cm0slquw90003vv4azb9pes99",
+      "totalQuota": 100
+    }
+  ],
+  "reason": "Testing non-existent plan in bulk update"
+}
+
+### ============================================
+### AUTHORIZATION TESTS
+### ============================================
+
+### Access without token (should fail)
+GET {{baseUrl}}/admin/quota/overview
+
+### Access with invalid token (should fail)
+GET {{baseUrl}}/admin/quota/overview
+Authorization: Bearer invalid-token
+
+### ============================================
+### QUOTA UTILIZATION SCENARIOS
+### ============================================
+
+### Check Quota Overview After Updates
+GET {{baseUrl}}/admin/quota/overview
+Authorization: Bearer {{adminToken}}
+
+### Check Statistics After Updates
+GET {{baseUrl}}/admin/quota/statistics
+Authorization: Bearer {{adminToken}}
+
+### Get Specific Plan Details After Updates
+GET {{baseUrl}}/admin/quota/plans/{{planId}}
+Authorization: Bearer {{adminToken}}
+
+### ============================================
+### REALISTIC QUOTA MANAGEMENT SCENARIOS
+### ============================================
+
+### Scenario 1: Emergency Quota Increase
+PUT {{baseUrl}}/admin/quota/plans/{{planId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "totalQuota": 300,
+  "reason": "Emergency quota increase due to unexpected high demand during Black Friday promotion"
+}
+
+### Scenario 2: Planned Capacity Reduction
+PUT {{baseUrl}}/admin/quota/plans/{{planId}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "totalQuota": 250,
+  "reason": "Planned capacity reduction for server maintenance window"
+}
+
+### Scenario 3: Bulk Seasonal Adjustment
+PUT {{baseUrl}}/admin/quota/bulk-update
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "updates": [
+    {
+      "planId": "cm0slquw90003vv4azb9pes42",
+      "totalQuota": 400
+    },
+    {
+      "planId": "cm0slquw90004vv4azb9pes43",
+      "totalQuota": 200
+    },
+    {
+      "planId": "cm0slquw90005vv4azb9pes44",
+      "totalQuota": 150
+    }
+  ],
+  "reason": "Seasonal quota adjustment for holiday traffic surge - Q4 2024"
+}
+
+### ============================================
+### FINAL VERIFICATION
+### ============================================
+
+### Final Quota Statistics
+GET {{baseUrl}}/admin/quota/statistics
+Authorization: Bearer {{adminToken}}
+
+### Final Quota Overview
+GET {{baseUrl}}/admin/quota/overview
+Authorization: Bearer {{adminToken}}

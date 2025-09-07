@@ -23,7 +23,7 @@ export const subscriptionIdValidation = Joi.object({
   }),
 });
 
-// Create subscription validation
+// Create subscription validation (with optional coupon support)
 export const createSubscriptionValidation = Joi.object({
   planId: Joi.string().alphanum().min(20).max(30).required().messages({
     "string.alphanum": "Plan ID must contain only letters and numbers",
@@ -31,6 +31,19 @@ export const createSubscriptionValidation = Joi.object({
     "string.max": "Plan ID must not exceed 30 characters",
     "any.required": "Plan ID is required",
   }),
+  couponCode: Joi.string()
+    .trim()
+    .uppercase()
+    .min(3)
+    .max(50)
+    .pattern(/^[A-Z0-9_-]+$/)
+    .optional()
+    .messages({
+      "string.pattern.base":
+        "Coupon code can only contain letters, numbers, hyphens, and underscores",
+      "string.min": "Coupon code must be at least 3 characters long",
+      "string.max": "Coupon code cannot exceed 50 characters",
+    }),
 });
 
 // Upgrade subscription validation
@@ -135,5 +148,13 @@ export const bulkSubscriptionActionValidation = Joi.object({
   reason: Joi.string().min(3).max(500).optional().messages({
     "string.min": "Reason must be at least 3 characters long",
     "string.max": "Reason must not exceed 500 characters",
+  }),
+});
+
+// Toggle auto-renew validation
+export const toggleAutoRenewValidation = Joi.object({
+  autoRenew: Joi.boolean().required().messages({
+    "boolean.base": "Auto-renew must be a boolean value",
+    "any.required": "Auto-renew setting is required",
   }),
 });

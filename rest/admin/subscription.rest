@@ -533,3 +533,182 @@ Authorization: Bearer {{adminToken}}
 # This test verifies that _count.instances matches the actual instances array length
 GET {{baseUrl}}/admin/subscriptions?limit=3
 Authorization: Bearer {{adminToken}}
+
+### ============================================================================
+### ADMIN UPDATE SUBSCRIPTION ENDPOINT (NEW)
+### ============================================================================
+
+### Test 1: Update Subscription End Date
+PUT {{baseUrl}}/admin/subscriptions/cmeyedz930003vv04luqzs279
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "endDate": "2025-12-31T23:59:59.000Z"
+}
+
+### Test 2: Update Multiple Subscription Fields
+PUT {{baseUrl}}/admin/subscriptions/cmeyijqjw0003vvtnb8nqind6
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "endDate": "2025-08-29T23:59:59.000Z",
+  "nextBilling": "2025-08-29T23:59:59.000Z"
+}
+
+### Test 3: Update Subscription Status
+PUT {{baseUrl}}/admin/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "SUSPENDED"
+}
+
+### Test 4: Set Grace Period End Date
+PUT {{baseUrl}}/admin/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "gracePeriodEnd": "2025-09-15T23:59:59.000Z",
+  "failedCharges": 1
+}
+
+### Test 5: Clear Grace Period (Set to null)
+PUT {{baseUrl}}/admin/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "gracePeriodEnd": null,
+  "failedCharges": 0
+}
+
+### Test 6: Update Auto-Renew Setting (should auto-update nextBilling)
+PUT {{baseUrl}}/admin/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "autoRenew": false
+}
+
+### Test 7: Update Billing Information
+PUT {{baseUrl}}/admin/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "lastBilled": "2025-08-01T00:00:00.000Z",
+  "lastChargeAmount": 50000,
+  "nextBilling": "2025-09-01T00:00:00.000Z"
+}
+
+### ============================================================================
+### ADMIN UPDATE SUBSCRIPTION ERROR SCENARIOS
+### ============================================================================
+
+### Test 8: Update Non-existent Subscription (should fail)
+PUT {{baseUrl}}/admin/subscriptions/clnonexistentsubscription
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "endDate": "2025-12-31T23:59:59.000Z"
+}
+
+### Test 9: Update with Invalid Status (should fail)
+PUT {{baseUrl}}/admin/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "status": "INVALID_STATUS"
+}
+
+### Test 10: Update with Invalid Date Format (should fail)
+PUT {{baseUrl}}/admin/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "endDate": "invalid-date-format"
+}
+
+### Test 11: Update with Invalid Field (should fail)
+PUT {{baseUrl}}/admin/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "invalidField": "should not be allowed"
+}
+
+### Test 12: Update with Negative Price (should fail)
+PUT {{baseUrl}}/admin/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "monthlyPrice": -1000
+}
+
+### Test 13: Update without Authentication (should fail)
+PUT {{baseUrl}}/admin/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Content-Type: application/json
+
+{
+  "endDate": "2025-12-31T23:59:59.000Z"
+}
+
+### Test 14: Update with Regular User Token (should fail)
+PUT {{baseUrl}}/admin/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer regular_user_token
+Content-Type: application/json
+
+{
+  "endDate": "2025-12-31T23:59:59.000Z"
+}
+
+### Test 15: Update with Empty Body (should fail)
+PUT {{baseUrl}}/admin/subscriptions/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{}
+
+### ============================================================================
+### ADMIN UPDATE SUBSCRIPTION FUNCTIONALITY NOTES
+### ============================================================================
+
+# Admin Update Subscription Features:
+# - Complete freedom to edit subscription fields
+# - Comprehensive validation for all field types
+# - Automatic nextBilling updates when autoRenew changes
+# - Complete audit trail with change tracking
+# - Type validation for dates, numbers, booleans, and enums
+# - Prevents invalid field updates with clear error messages
+
+# Allowed Fields for Update:
+# - status: ACTIVE, SUSPENDED, CANCELLED, EXPIRED, PENDING_UPGRADE, PENDING_PAYMENT
+# - startDate: ISO date format
+# - endDate: ISO date format
+# - nextBilling: ISO date format or null
+# - lastBilled: ISO date format or null
+# - monthlyPrice: Integer (0 to 10,000,000 IDR)
+# - lastChargeAmount: Integer (0 to 10,000,000 IDR) or null
+# - failedCharges: Integer (0 to 10)
+# - autoRenew: Boolean
+# - gracePeriodEnd: ISO date format or null
+
+# Business Logic:
+# - When autoRenew is set to true, nextBilling is automatically set to endDate
+# - When autoRenew is set to false, nextBilling is automatically set to null
+# - All changes are logged with before/after values for audit trail
+# - Admin information is recorded for accountability
+# - Type validation ensures data integrity
+# - At least one field must be provided for update
+
+### END OF FILE

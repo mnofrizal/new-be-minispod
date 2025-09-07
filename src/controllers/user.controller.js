@@ -9,10 +9,6 @@ const getProfile = async (req, res) => {
 
     const user = await userService.getProfileById(userId);
 
-    if (!user) {
-      return sendResponse(res, StatusCodes.NOT_FOUND, null, "User not found");
-    }
-
     sendResponse(
       res,
       StatusCodes.OK,
@@ -21,6 +17,11 @@ const getProfile = async (req, res) => {
     );
   } catch (error) {
     logger.error("Get profile error:", error);
+
+    if (error.message === "User not found") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
+    }
+
     sendResponse(
       res,
       StatusCodes.INTERNAL_SERVER_ERROR,
@@ -112,7 +113,12 @@ const getAllUsers = async (req, res) => {
     sendResponse(res, StatusCodes.OK, users, "Users retrieved successfully");
   } catch (error) {
     logger.error("Get all users error:", error);
-    sendResponse(res, StatusCodes.INTERNAL_SERVER_ERROR, null);
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
   }
 };
 
@@ -122,14 +128,20 @@ const getUserById = async (req, res) => {
 
     const user = await userService.getProfileById(id);
 
-    if (!user) {
-      return sendResponse(res, StatusCodes.NOT_FOUND, null, "User not found");
-    }
-
     sendResponse(res, StatusCodes.OK, { user }, "User retrieved successfully");
   } catch (error) {
     logger.error("Get user by ID error:", error);
-    sendResponse(res, StatusCodes.INTERNAL_SERVER_ERROR, null);
+
+    if (error.message === "User not found") {
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, error.message);
+    }
+
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
   }
 };
 
@@ -155,14 +167,19 @@ const updateUser = async (req, res) => {
     logger.error("Update user error:", error);
 
     if (error.code === "P2025") {
-      return sendResponse(res, StatusCodes.NOT_FOUND, null);
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, "User not found");
     }
 
     if (error.message === "Phone number is already in use") {
       return sendResponse(res, StatusCodes.CONFLICT, null, error.message);
     }
 
-    sendResponse(res, StatusCodes.INTERNAL_SERVER_ERROR, null);
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
   }
 };
 
@@ -177,10 +194,15 @@ const deleteUser = async (req, res) => {
     logger.error("Delete user error:", error);
 
     if (error.code === "P2025") {
-      return sendResponse(res, StatusCodes.NOT_FOUND, null);
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, "User not found");
     }
 
-    sendResponse(res, StatusCodes.INTERNAL_SERVER_ERROR, null);
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
   }
 };
 
@@ -201,10 +223,15 @@ const toggleUserStatus = async (req, res) => {
     logger.error("Toggle user status error:", error);
 
     if (error.code === "P2025") {
-      return sendResponse(res, StatusCodes.NOT_FOUND, null);
+      return sendResponse(res, StatusCodes.NOT_FOUND, null, "User not found");
     }
 
-    sendResponse(res, StatusCodes.INTERNAL_SERVER_ERROR, null);
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Internal server error"
+    );
   }
 };
 
@@ -242,7 +269,7 @@ const createUser = async (req, res) => {
       res,
       StatusCodes.INTERNAL_SERVER_ERROR,
       null,
-      ERROR_MESSAGES.INTERNAL_SERVER_ERROR
+      "Internal server error"
     );
   }
 };

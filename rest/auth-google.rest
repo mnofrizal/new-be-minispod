@@ -1,0 +1,251 @@
+### Google OAuth Authentication Tests
+
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
+
+### Variables (Replace with actual values for testing)
+@googleIdToken = eyJhbGciOiJSUzI1NiIsImtpZCI6IjdkYzBkYjEzNzNmNzNkNzM5YzQ5YjkzZGY5NzJmNzNkNzM5YzQ5YjkiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJhY2NvdW50cy5nb29nbGUuY29tIiwiYXVkIjoieW91ci1nb29nbGUtY2xpZW50LWlkLmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwic3ViIjoiMTIzNDU2Nzg5MCIsImVtYWlsIjoidGVzdEBleGFtcGxlLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJuYW1lIjoiVGVzdCBVc2VyIiwicGljdHVyZSI6Imh0dHBzOi8vbGgzLmdvb2dsZXVzZXJjb250ZW50LmNvbS9hL2RlZmF1bHQtdXNlciIsImdpdmVuX25hbWUiOiJUZXN0IiwiZmFtaWx5X25hbWUiOiJVc2VyIiwiaWF0IjoxNjMwMDAwMDAwLCJleHAiOjE2MzAwMDM2MDB9.example-signature
+@accessToken = your-jwt-access-token-here
+
+### Expected Response Format:
+# {
+#   "success": true,
+#   "data": {
+#     "user": {
+#       "id": "user-id",
+#       "email": "user@example.com",
+#       "name": "User Name",
+#       "role": "USER",
+#       "phone": null,
+#       "avatar": "https://avatar-url.com/image.jpg",
+#       "creditBalance": 912903,
+#       "totalTopUp": 0,
+#       "totalSpent": 87096
+#     },
+#     "accessToken": "jwt-access-token",
+#     "refreshToken": "jwt-refresh-token"
+#   }
+# }
+
+###
+# 1. Google OAuth Login (New User)
+POST {{baseUrl}}/auth/google/login
+Content-Type: {{contentType}}
+
+{
+  "idToken": "{{googleIdToken}}"
+}
+
+###
+# 2. Google OAuth Login (Existing User)
+POST {{baseUrl}}/auth/google/login
+Content-Type: {{contentType}}
+
+{
+  "idToken": "{{googleIdToken}}"
+}
+
+###
+# 3. Google OAuth Login - Invalid Token
+POST {{baseUrl}}/auth/google/login
+Content-Type: {{contentType}}
+
+{
+  "idToken": "invalid-token"
+}
+
+###
+# 4. Google OAuth Login - Missing Token
+POST {{baseUrl}}/auth/google/login
+Content-Type: {{contentType}}
+
+{
+}
+
+###
+# 5. Link Google Account to Existing User
+POST {{baseUrl}}/auth/google/link
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "idToken": "{{googleIdToken}}"
+}
+
+###
+# 6. Link Google Account - Already Linked
+POST {{baseUrl}}/auth/google/link
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "idToken": "{{googleIdToken}}"
+}
+
+###
+# 7. Link Google Account - Email Mismatch
+POST {{baseUrl}}/auth/google/link
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "idToken": "different-email-google-token"
+}
+
+###
+# 8. Link Google Account - Invalid Token
+POST {{baseUrl}}/auth/google/link
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "idToken": "invalid-token"
+}
+
+###
+# 9. Link Google Account - Missing Token
+POST {{baseUrl}}/auth/google/link
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+}
+
+###
+# 10. Link Google Account - No Authorization
+POST {{baseUrl}}/auth/google/link
+Content-Type: {{contentType}}
+
+{
+  "idToken": "{{googleIdToken}}"
+}
+
+###
+# 11. Unlink Google Account
+POST {{baseUrl}}/auth/google/unlink
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+###
+# 12. Unlink Google Account - No Google Account Linked
+POST {{baseUrl}}/auth/google/unlink
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+###
+# 13. Unlink Google Account - No Password Set (Should Fail)
+POST {{baseUrl}}/auth/google/unlink
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+###
+# 14. Unlink Google Account - No Authorization
+POST {{baseUrl}}/auth/google/unlink
+Content-Type: {{contentType}}
+
+###
+# 15. Get Profile After Google Login
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer {{accessToken}}
+
+###
+# Test Flow: Complete Google OAuth Integration
+# 1. First, register a regular user
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "name": "Test User",
+  "email": "test@example.com",
+  "password": "password123",
+  "phone": "+6281234567890"
+}
+
+###
+# 2. Login with regular credentials
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "test@example.com",
+  "password": "password123"
+}
+
+###
+# 3. Link Google account to existing user
+POST {{baseUrl}}/auth/google/link
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+{
+  "idToken": "{{googleIdToken}}"
+}
+
+###
+# 4. Get profile to verify Google account is linked
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer {{accessToken}}
+
+###
+# 5. Unlink Google account
+POST {{baseUrl}}/auth/google/unlink
+Content-Type: {{contentType}}
+Authorization: Bearer {{accessToken}}
+
+###
+# 6. Verify Google account is unlinked
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer {{accessToken}}
+
+###
+# 7. Try Google login with same token (should create new user or link existing)
+POST {{baseUrl}}/auth/google/login
+Content-Type: {{contentType}}
+
+{
+  "idToken": "{{googleIdToken}}"
+}
+
+###
+# Configuration Check
+# Check if Google OAuth is properly configured
+GET {{baseUrl}}/health
+
+###
+# Error Handling Tests
+
+# Test with malformed JSON
+POST {{baseUrl}}/auth/google/login
+Content-Type: {{contentType}}
+
+{
+  "idToken": "{{googleIdToken}}",
+  "extraField": "should-be-ignored"
+}
+
+###
+# Test with empty string token
+POST {{baseUrl}}/auth/google/login
+Content-Type: {{contentType}}
+
+{
+  "idToken": ""
+}
+
+###
+# Test with null token
+POST {{baseUrl}}/auth/google/login
+Content-Type: {{contentType}}
+
+{
+  "idToken": null
+}
+
+###
+# Test with wrong content type
+POST {{baseUrl}}/auth/google/login
+Content-Type: text/plain
+
+{
+  "idToken": "{{googleIdToken}}"
+}

@@ -1,0 +1,339 @@
+### Variables
+@baseUrl = http://localhost:3000/api
+@authToken = {{admin_login.response.body.data.accessToken}}
+
+### ============================================================================
+### ADMIN BILLING MANAGEMENT ENDPOINTS
+### ============================================================================
+
+### Admin Login
+# @name admin_login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "user1@minispod.com",
+  "password": "password123"
+}
+
+### ============================================================================
+### BILLING STATISTICS
+### ============================================================================
+
+### Test 1: Get Billing Statistics
+GET {{baseUrl}}/admin/billing/stats
+Authorization: Bearer {{authToken}}
+
+### Test 2: Get Billing Statistics - Without Authentication (should fail)
+GET {{baseUrl}}/admin/billing/stats
+
+### Test 3: Get Billing Statistics - Non-Admin User (should fail)
+# Note: Use regular user token
+GET {{baseUrl}}/admin/billing/stats
+Authorization: Bearer non_admin_token
+
+### ============================================================================
+### MANUAL RENEWAL PROCESSING
+### ============================================================================
+
+### Test 4: Process Auto-Renewals Manually
+POST {{baseUrl}}/admin/billing/process-renewals
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 5: Process Grace Period Subscriptions
+POST {{baseUrl}}/admin/billing/process-grace-period
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### ============================================================================
+### LOW CREDIT MANAGEMENT
+### ============================================================================
+
+### Test 6: Get Low Credit Subscriptions
+GET {{baseUrl}}/admin/billing/low-credit
+Authorization: Bearer {{authToken}}
+
+### Test 7: Send Low Credit Notifications
+POST {{baseUrl}}/admin/billing/send-low-credit-notifications
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### ============================================================================
+### JOB MANAGEMENT
+### ============================================================================
+
+### Test 8: Get Job Status
+GET {{baseUrl}}/admin/billing/job-status
+Authorization: Bearer {{authToken}}
+
+### Test 9: Run Daily Renewals Job Manually
+POST {{baseUrl}}/admin/billing/run-job/daily-renewals
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 10: Run Grace Period Job Manually
+POST {{baseUrl}}/admin/billing/run-job/grace-period
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 11: Run Low Credit Notifications Job
+POST {{baseUrl}}/admin/billing/run-job/low-credit-notifications
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 12: Run Grace Period Reminders Job
+POST {{baseUrl}}/admin/billing/run-job/grace-period-reminders
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 13: Run Billing Stats Job
+POST {{baseUrl}}/admin/billing/run-job/billing-stats
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Test 14: Run Invalid Job (should fail)
+POST {{baseUrl}}/admin/billing/run-job/invalid-job
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### ============================================================================
+### GRACE PERIOD MANAGEMENT
+### ============================================================================
+
+### Test 15: Set Grace Period for Subscription (7 days)
+POST {{baseUrl}}/admin/billing/set-grace-period/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "graceDays": 7
+}
+
+### Test 16: Set Grace Period for Subscription (Custom days)
+POST {{baseUrl}}/admin/billing/set-grace-period/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "graceDays": 14
+}
+
+### Test 17: Set Grace Period - Invalid Days (should fail)
+POST {{baseUrl}}/admin/billing/set-grace-period/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "graceDays": 35
+}
+
+### Test 18: Set Grace Period - Non-existent Subscription (should fail)
+POST {{baseUrl}}/admin/billing/set-grace-period/clnonexistentsubscription
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "graceDays": 7
+}
+
+### ============================================================================
+### SUBSCRIPTION EXPIRATION
+### ============================================================================
+
+### Test 19: Expire Subscription Manually
+POST {{baseUrl}}/admin/billing/expire/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "reason": "Manual admin expiration for testing"
+}
+
+### Test 20: Expire Subscription - Without Reason
+POST {{baseUrl}}/admin/billing/expire/cmeu4cgo20007vvbohd84o1w1
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{}
+
+### Test 21: Expire Non-existent Subscription (should fail)
+POST {{baseUrl}}/admin/billing/expire/clnonexistentsubscription
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "reason": "Testing non-existent subscription"
+}
+
+### ============================================================================
+### ERROR SCENARIOS
+### ============================================================================
+
+### Test 22: Access Billing Endpoints without Authentication (should fail)
+GET {{baseUrl}}/admin/billing/stats
+
+### Test 23: Access Billing Endpoints with Invalid JWT (should fail)
+GET {{baseUrl}}/admin/billing/stats
+Authorization: Bearer invalid_jwt_token
+
+### Test 24: Access Billing Endpoints as Regular User (should fail)
+# Note: Use regular user token instead of admin token
+GET {{baseUrl}}/admin/billing/stats
+Authorization: Bearer regular_user_token
+
+### Test 25: Invalid Subscription ID Format (should fail)
+POST {{baseUrl}}/admin/billing/set-grace-period/invalid_id
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "graceDays": 7
+}
+
+### ============================================================================
+### WORKFLOW TESTS
+### ============================================================================
+
+### Workflow Test 1: Complete Billing Management Workflow
+
+### Step 1: Check current billing statistics
+GET {{baseUrl}}/admin/billing/stats
+Authorization: Bearer {{authToken}}
+
+### Step 2: Check job status
+GET {{baseUrl}}/admin/billing/job-status
+Authorization: Bearer {{authToken}}
+
+### Step 3: Get low credit subscriptions
+GET {{baseUrl}}/admin/billing/low-credit
+Authorization: Bearer {{authToken}}
+
+### Step 4: Send low credit notifications if any found
+POST {{baseUrl}}/admin/billing/send-low-credit-notifications
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Step 5: Process renewals manually
+POST {{baseUrl}}/admin/billing/process-renewals
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Step 6: Process grace period subscriptions
+POST {{baseUrl}}/admin/billing/process-grace-period
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### Step 7: Check updated billing statistics
+GET {{baseUrl}}/admin/billing/stats
+Authorization: Bearer {{authToken}}
+
+### ============================================================================
+### EXPECTED RESPONSE STRUCTURES
+### ============================================================================
+
+# Expected Billing Stats Response:
+# {
+#   "success": true,
+#   "statusCode": 200,
+#   "data": {
+#     "totalActiveSubscriptions": 5,
+#     "subscriptionsDueToday": 2,
+#     "subscriptionsInGracePeriod": 1,
+#     "monthlyRevenue": 500000,
+#     "failedRenewals": 0,
+#     "lastUpdated": "2025-08-30T14:00:00.000Z"
+#   },
+#   "message": "Billing statistics retrieved successfully",
+#   "timestamp": "2025-08-30T14:00:00.123Z"
+# }
+
+# Expected Job Status Response:
+# {
+#   "success": true,
+#   "statusCode": 200,
+#   "data": {
+#     "isRunning": true,
+#     "activeJobs": [
+#       "daily-renewals",
+#       "grace-period",
+#       "low-credit-notifications",
+#       "grace-period-reminders",
+#       "billing-stats"
+#     ],
+#     "jobCount": 5
+#   },
+#   "message": "Job status retrieved successfully",
+#   "timestamp": "2025-08-30T14:00:00.123Z"
+# }
+
+# Expected Renewal Processing Response:
+# {
+#   "success": true,
+#   "statusCode": 200,
+#   "data": {
+#     "processed": 3,
+#     "successful": 2,
+#     "failed": 1,
+#     "insufficientCredit": 1,
+#     "quotaExceeded": 0,
+#     "errors": [
+#       {
+#         "subscriptionId": "sub123",
+#         "userId": "user123",
+#         "userEmail": "user@example.com",
+#         "error": "Insufficient credit. Balance: 25000, Required: 50000"
+#       }
+#     ]
+#   },
+#   "message": "Auto-renewal processing completed",
+#   "timestamp": "2025-08-30T14:00:00.123Z"
+# }
+
+### ============================================================================
+### AUTO-RENEWAL SYSTEM FUNCTIONALITY NOTES
+### ============================================================================
+
+# Auto-Renewal System Features:
+# - Scheduled daily processing at 2:00 AM (Asia/Jakarta timezone)
+# - Grace period management (7 days default)
+# - Low credit notifications (3 days before renewal)
+# - Grace period reminders (daily during grace period)
+# - Comprehensive billing statistics
+# - Manual job execution for testing/debugging
+# - Admin expiration capabilities
+# - Retry logic for failed renewals
+# - Notification system integration
+
+# Scheduled Jobs:
+# - daily-renewals: 2:00 AM daily - Process subscription renewals
+# - grace-period: 3:00 AM daily - Handle expired grace periods
+# - low-credit-notifications: 9:00 AM daily - Send low credit warnings
+# - grace-period-reminders: 6:00 PM daily - Send grace period reminders
+# - billing-stats: 11:00 PM daily - Generate billing statistics
+
+# Grace Period Logic:
+# - Automatically set when renewal fails due to insufficient credit
+# - Default 7 days, configurable by admin (1-30 days)
+# - Daily reminders sent during grace period
+# - Subscription expired if not resolved by end of grace period
+# - Can be manually set by admin for any subscription
+
+# Notification Types:
+# - LOW_CREDIT_WARNING: Sent 3 days before renewal
+# - RENEWAL_SUCCESS: Sent after successful renewal
+# - RENEWAL_FAILURE: Sent when renewal fails (with grace period info)
+# - GRACE_PERIOD_REMINDER: Daily reminders during grace period
+# - SUBSCRIPTION_EXPIRED: Sent when subscription is expired
+# - ADMIN_BILLING_SUMMARY: Daily summary for administrators
+
+# Business Rules:
+# - Only ACTIVE subscriptions with autoRenew=true are processed
+# - Failed renewals trigger 7-day grace period
+# - Grace period can be extended by admin
+# - Expired subscriptions terminate associated service instances
+# - All billing operations are logged for audit trail
+# - Quota is released when subscriptions are expired
+# - Credit deduction follows existing transaction patterns
+
+### END OF FILE

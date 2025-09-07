@@ -3,6 +3,8 @@ import sendResponse from "../utils/response.js";
 import creditService from "../services/credit.service.js";
 import midtransService from "../services/payment/midtrans.service.js";
 import transactionService from "../services/transaction.service.js";
+import couponService from "../services/coupon.service.js";
+import logger from "../utils/logger.js";
 
 /**
  * Get user wallet information (balance, statistics, recent transactions)
@@ -21,7 +23,7 @@ const getWalletInfo = async (req, res) => {
       "Wallet information retrieved successfully"
     );
   } catch (error) {
-    console.error("Get wallet info error:", error);
+    logger.error("Get wallet info error:", error);
     sendResponse(
       res,
       StatusCodes.INTERNAL_SERVER_ERROR,
@@ -68,7 +70,7 @@ const getTransactionHistory = async (req, res) => {
       "Transaction history retrieved successfully"
     );
   } catch (error) {
-    console.error("Get transaction history error:", error);
+    logger.error("Get transaction history error:", error);
     sendResponse(
       res,
       StatusCodes.INTERNAL_SERVER_ERROR,
@@ -101,7 +103,7 @@ const createTopUp = async (req, res) => {
       "Top-up transaction created successfully"
     );
   } catch (error) {
-    console.error("Create top-up error:", error);
+    logger.error("Create top-up error:", error);
     if (error.message.includes("Minimum top-up")) {
       sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
     } else {
@@ -130,7 +132,7 @@ const getPaymentMethods = async (req, res) => {
       "Payment methods retrieved successfully"
     );
   } catch (error) {
-    console.error("Get payment methods error:", error);
+    logger.error("Get payment methods error:", error);
     sendResponse(
       res,
       StatusCodes.INTERNAL_SERVER_ERROR,
@@ -219,7 +221,7 @@ const checkTransactionStatus = async (req, res) => {
       );
     }
   } catch (error) {
-    console.error("Check transaction status error:", error);
+    logger.error("Check transaction status error:", error);
     if (error.message.includes("not found")) {
       sendResponse(res, StatusCodes.NOT_FOUND, null, "Transaction not found");
     } else {
@@ -275,7 +277,7 @@ const cancelTransaction = async (req, res) => {
       "Transaction cancelled successfully"
     );
   } catch (error) {
-    console.error("Cancel transaction error:", error);
+    logger.error("Cancel transaction error:", error);
     if (error.message.includes("not found")) {
       sendResponse(res, StatusCodes.NOT_FOUND, null, "Transaction not found");
     } else if (error.message.includes("Can only cancel")) {
@@ -307,7 +309,7 @@ const handleMidtransWebhook = async (req, res) => {
       message: result.message || "Notification processed",
     });
   } catch (error) {
-    console.error("Midtrans webhook error:", error);
+    logger.error("Midtrans webhook error:", error);
 
     // Return success to avoid retry loop, but log the error
     res.status(StatusCodes.OK).json({
@@ -338,7 +340,7 @@ const getWalletStatistics = async (req, res) => {
       "Wallet statistics retrieved successfully"
     );
   } catch (error) {
-    console.error("Get wallet statistics error:", error);
+    logger.error("Get wallet statistics error:", error);
     sendResponse(
       res,
       StatusCodes.INTERNAL_SERVER_ERROR,
@@ -357,15 +359,6 @@ const checkCreditSufficiency = async (req, res) => {
     const userId = req.user.userId;
     const { amount } = req.body;
 
-    if (!amount || amount <= 0) {
-      return sendResponse(
-        res,
-        StatusCodes.BAD_REQUEST,
-        null,
-        "Valid amount is required"
-      );
-    }
-
     const creditCheck = await creditService.checkSufficientCredit(
       userId,
       amount
@@ -378,12 +371,136 @@ const checkCreditSufficiency = async (req, res) => {
       "Credit check completed"
     );
   } catch (error) {
-    console.error("Check credit error:", error);
+    logger.error("Check credit error:", error);
     sendResponse(
       res,
       StatusCodes.INTERNAL_SERVER_ERROR,
       null,
       "Failed to check credit sufficiency"
+    );
+  }
+};
+
+/**
+ * Validate coupon code
+ * POST /api/wallet/validate-coupon
+ */
+const validateCoupon = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { couponCode, serviceId, subscriptionAmount } = req.body;
+
+    const validation = await couponService.validateCoupon(couponCode, userId, {
+      serviceId,
+      subscriptionAmount,
+    });
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      { validation },
+      validation.valid ? "Coupon is valid" : "Coupon validation failed"
+    );
+  } catch (error) {
+    logger.error("Validate coupon error:", error);
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to validate coupon"
+    );
+  }
+};
+
+/**
+ * Redeem credit top-up coupon (for billing page)
+ * POST /api/wallet/redeem-coupon
+ */
+const redeemCoupon = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { couponCode } = req.body;
+
+    const redemptionResult = await couponService.redeemCreditTopupCoupon(
+      userId,
+      couponCode
+    );
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      { redemption: redemptionResult },
+      "Coupon redeemed successfully"
+    );
+  } catch (error) {
+    logger.error("Redeem coupon error:", error);
+
+    // Handle Prisma unique constraint violation
+    if (
+      error.code === "P2002" &&
+      error.meta?.target?.includes("couponId") &&
+      error.meta?.target?.includes("userId")
+    ) {
+      return sendResponse(
+        res,
+        StatusCodes.BAD_REQUEST,
+        null,
+        "You have already redeemed this coupon"
+      );
+    }
+
+    // Handle specific coupon errors
+    if (
+      error.message.includes("Invalid coupon") ||
+      error.message.includes("expired") ||
+      error.message.includes("already used") ||
+      error.message.includes("already redeemed") ||
+      error.message.includes("usage limit") ||
+      error.message.includes("cannot be used for credit")
+    ) {
+      sendResponse(res, StatusCodes.BAD_REQUEST, null, error.message);
+    } else {
+      sendResponse(
+        res,
+        StatusCodes.INTERNAL_SERVER_ERROR,
+        null,
+        "Failed to redeem coupon"
+      );
+    }
+  }
+};
+
+/**
+ * Get user's coupon redemption history
+ * GET /api/wallet/coupon-history
+ */
+const getCouponHistory = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { page = 1, limit = 20, type } = req.query;
+
+    const history = await couponService.getUserRedemptionHistory(userId, {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      type,
+    });
+
+    sendResponse(
+      res,
+      StatusCodes.OK,
+      {
+        redemptions: history.redemptions,
+        pagination: history.pagination,
+      },
+      "Coupon history retrieved successfully"
+    );
+  } catch (error) {
+    logger.error("Get coupon history error:", error);
+    sendResponse(
+      res,
+      StatusCodes.INTERNAL_SERVER_ERROR,
+      null,
+      "Failed to retrieve coupon history"
     );
   }
 };
@@ -398,4 +515,7 @@ export default {
   handleMidtransWebhook,
   getWalletStatistics,
   checkCreditSufficiency,
+  validateCoupon,
+  redeemCoupon,
+  getCouponHistory,
 };

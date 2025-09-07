@@ -493,9 +493,167 @@ const startHealthMonitoring = (intervalMs = 5 * 60 * 1000) => {
   }, intervalMs);
 };
 
+/**
+ * Get health status for a specific instance by ID
+ * @param {string} instanceId - Instance ID
+ * @returns {Promise<Object>} Health status
+ */
+const getInstanceHealthById = async (instanceId) => {
+  // Get instance from database
+  const instance = await prisma.serviceInstance.findUnique({
+    where: { id: instanceId },
+    include: {
+      subscription: {
+        include: {
+          service: { select: { name: true, slug: true } },
+          plan: { select: { name: true, planType: true } },
+          user: { select: { id: true, name: true } },
+        },
+      },
+    },
+  });
+
+  if (!instance) {
+    throw new Error("Service instance not found");
+  }
+
+  // Run health check for this specific instance
+  const healthResult = await checkInstanceHealth(instance);
+
+  return healthResult;
+};
+
+/**
+ * Get health statistics for a time range
+ * @param {string} timeRange - Time range (1h, 6h, 24h, 7d)
+ * @returns {Promise<Object>} Health statistics
+ */
+const getHealthStatistics = async (timeRange = "24h") => {
+  // Calculate time range
+  let startTime;
+  switch (timeRange) {
+    case "1h":
+      startTime = new Date(Date.now() - 60 * 60 * 1000);
+      break;
+    case "6h":
+      startTime = new Date(Date.now() - 6 * 60 * 60 * 1000);
+      break;
+    case "24h":
+      startTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      break;
+    case "7d":
+      startTime = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      break;
+    default:
+      startTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  }
+
+  // Get instances with recent health checks
+  const instances = await prisma.serviceInstance.findMany({
+    where: {
+      status: { not: "TERMINATED" },
+      lastHealthCheck: {
+        gte: startTime,
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      healthStatus: true,
+      lastHealthCheck: true,
+      cpuUsage: true,
+      memoryUsage: true,
+      subscription: {
+        select: {
+          service: { select: { name: true, slug: true } },
+          plan: { select: { name: true, planType: true } },
+        },
+      },
+    },
+    orderBy: { lastHealthCheck: "desc" },
+  });
+
+  // Calculate statistics
+  const totalInstances = instances.length;
+  const healthyInstances = instances.filter(
+    (i) => i.healthStatus === "Healthy"
+  ).length;
+  const unhealthyInstances = totalInstances - healthyInstances;
+
+  // Group by service type
+  const serviceStats = instances.reduce((acc, instance) => {
+    const serviceName = instance.subscription.service.name;
+    if (!acc[serviceName]) {
+      acc[serviceName] = {
+        total: 0,
+        healthy: 0,
+        unhealthy: 0,
+      };
+    }
+    acc[serviceName].total++;
+    if (instance.healthStatus === "Healthy") {
+      acc[serviceName].healthy++;
+    } else {
+      acc[serviceName].unhealthy++;
+    }
+    return acc;
+  }, {});
+
+  // Calculate resource usage statistics
+  const resourceStats = {
+    cpu: {
+      average: 0,
+      max: 0,
+      min: 0,
+    },
+    memory: {
+      average: 0,
+      max: 0,
+      min: 0,
+    },
+  };
+
+  const instancesWithMetrics = instances.filter(
+    (i) => i.cpuUsage !== null && i.memoryUsage !== null
+  );
+  if (instancesWithMetrics.length > 0) {
+    const cpuValues = instancesWithMetrics.map((i) => i.cpuUsage);
+    const memoryValues = instancesWithMetrics.map((i) => i.memoryUsage);
+
+    resourceStats.cpu.average = parseFloat(
+      (cpuValues.reduce((a, b) => a + b, 0) / cpuValues.length).toFixed(2)
+    );
+    resourceStats.cpu.max = Math.max(...cpuValues);
+    resourceStats.cpu.min = Math.min(...cpuValues);
+
+    resourceStats.memory.average = parseFloat(
+      (memoryValues.reduce((a, b) => a + b, 0) / memoryValues.length).toFixed(2)
+    );
+    resourceStats.memory.max = Math.max(...memoryValues);
+    resourceStats.memory.min = Math.min(...memoryValues);
+  }
+
+  return {
+    timeRange,
+    totalInstances,
+    healthyInstances,
+    unhealthyInstances,
+    healthPercentage:
+      totalInstances > 0
+        ? parseFloat(((healthyInstances / totalInstances) * 100).toFixed(2))
+        : 0,
+    serviceStats,
+    resourceStats,
+    lastUpdated: new Date().toISOString(),
+  };
+};
+
 export default {
   checkAllInstancesHealth,
   checkInstanceHealth,
   getHealthSummary,
   startHealthMonitoring,
+  getInstanceHealthById,
+  getHealthStatistics,
 };

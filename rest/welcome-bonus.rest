@@ -1,0 +1,365 @@
+### Welcome Bonus System Tests
+
+@baseUrl = http://localhost:3000/api
+@contentType = application/json
+
+### Variables
+@adminToken = your-admin-jwt-token-here
+@userToken = your-user-jwt-token-here
+
+###
+# Setup: Create Welcome Bonus Coupons (Admin Only)
+
+### 1. Create Welcome Bonus Coupon - IDR 20,000
+POST {{baseUrl}}/admin/coupons
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "code": "WELCOME2025",
+  "name": "Welcome Bonus 2025",
+  "description": "Welcome bonus for new users - IDR 20,000 credit",
+  "type": "WELCOME_BONUS",
+  "creditAmount": 20000,
+  "maxUses": 1000,
+  "maxUsesPerUser": 1,
+  "validUntil": "2025-12-31T23:59:59.000Z"
+}
+
+### 2. Create Additional Welcome Bonus Coupon - IDR 5,000
+POST {{baseUrl}}/admin/coupons
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "code": "NEWUSER5K",
+  "name": "New User Bonus",
+  "description": "Additional bonus for new users - IDR 5,000 credit",
+  "type": "WELCOME_BONUS",
+  "creditAmount": 5000,
+  "maxUses": 500,
+  "maxUsesPerUser": 1,
+  "validUntil": "2025-06-30T23:59:59.000Z"
+}
+
+### 3. Create Disabled Welcome Bonus (Should NOT be applied)
+POST {{baseUrl}}/admin/coupons
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "code": "DISABLED_WELCOME",
+  "name": "Disabled Welcome Bonus",
+  "description": "This should not be applied to new users",
+  "type": "WELCOME_BONUS",
+  "status": "DISABLED",
+  "creditAmount": 10000,
+  "maxUses": 100,
+  "maxUsesPerUser": 1,
+  "validUntil": "2025-12-31T23:59:59.000Z"
+}
+
+###
+# Test Welcome Bonus Application
+
+### 4. Test Regular Registration (Should get welcome bonuses)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "name": "Test User Welcome",
+  "email": "testwelcome@example.com",
+  "password": "password123",
+  "phone": "+6281234567891"
+}
+
+### Expected Response:
+# {
+#   "success": true,
+#   "data": {
+#     "user": {
+#       "id": "user-id",
+#       "email": "testwelcome@example.com",
+#       "name": "Test User Welcome",
+#       "role": "USER",
+#       "phone": "+6281234567891",
+#       "avatar": null,
+#       "creditBalance": 25000,  // 20000 + 5000 from welcome bonuses
+#       "totalTopUp": 25000,
+#       "totalSpent": 0
+#     },
+#     "accessToken": "jwt-token",
+#     "refreshToken": "refresh-token"
+#   }
+# }
+
+### 5. Test Google OAuth Registration (Should get welcome bonuses)
+POST {{baseUrl}}/auth/google/login
+Content-Type: {{contentType}}
+
+{
+  "idToken": "valid-google-id-token-here"
+}
+
+### Expected Response: Same as above with creditBalance: 25000
+
+### 6. Test Registration When Welcome Bonus Disabled
+# First, disable the welcome bonus coupons
+PUT {{baseUrl}}/admin/coupons/WELCOME2025
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "DISABLED"
+}
+
+### 7. Disable second welcome bonus
+PUT {{baseUrl}}/admin/coupons/NEWUSER5K
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "DISABLED"
+}
+
+### 8. Register new user (Should get NO welcome bonus)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "name": "Test User No Bonus",
+  "email": "testnobonus@example.com",
+  "password": "password123",
+  "phone": "+6281234567892"
+}
+
+### Expected Response: creditBalance should be 0
+
+### 9. Re-enable welcome bonuses for further testing
+PUT {{baseUrl}}/admin/coupons/WELCOME2025
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "ACTIVE"
+}
+
+### 10. Re-enable second welcome bonus
+PUT {{baseUrl}}/admin/coupons/NEWUSER5K
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "status": "ACTIVE"
+}
+
+###
+# Test Edge Cases
+
+### 11. Test Registration When Coupon Reaches Max Uses
+# First, update coupon to have only 1 use left
+PUT {{baseUrl}}/admin/coupons/NEWUSER5K
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "maxUses": 1,
+  "usedCount": 0
+}
+
+### 12. Register first user (should get both bonuses)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "name": "First User",
+  "email": "firstuser@example.com",
+  "password": "password123",
+  "phone": "+6281234567893"
+}
+
+### Expected: creditBalance: 25000 (both bonuses applied)
+
+### 13. Register second user (should only get WELCOME2025, not NEWUSER5K)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "name": "Second User",
+  "email": "seconduser@example.com",
+  "password": "password123",
+  "phone": "+6281234567894"
+}
+
+### Expected: creditBalance: 20000 (only WELCOME2025, NEWUSER5K exhausted)
+
+### 14. Test Registration When Coupon Expired
+# Create expired welcome bonus
+POST {{baseUrl}}/admin/coupons
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "code": "EXPIRED_WELCOME",
+  "name": "Expired Welcome Bonus",
+  "description": "This coupon is expired",
+  "type": "WELCOME_BONUS",
+  "creditAmount": 15000,
+  "maxUses": 100,
+  "maxUsesPerUser": 1,
+  "validUntil": "2024-01-01T00:00:00.000Z"
+}
+
+### 15. Register user (should not get expired coupon)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "name": "Test Expired",
+  "email": "testexpired@example.com",
+  "password": "password123",
+  "phone": "+6281234567895"
+}
+
+### Expected: Should only get active coupons, not the expired one
+
+###
+# Admin Management Tests
+
+### 16. List all welcome bonus coupons
+GET {{baseUrl}}/admin/coupons?type=WELCOME_BONUS
+Authorization: Bearer {{adminToken}}
+
+### 17. Get welcome bonus statistics
+GET {{baseUrl}}/admin/coupons/stats
+Authorization: Bearer {{adminToken}}
+
+### 18. View specific welcome bonus coupon
+GET {{baseUrl}}/admin/coupons/WELCOME2025
+Authorization: Bearer {{adminToken}}
+
+### 19. Update welcome bonus amount
+PUT {{baseUrl}}/admin/coupons/WELCOME2025
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "creditAmount": 30000,
+  "description": "Updated welcome bonus - IDR 30,000 credit"
+}
+
+### 20. Test with updated amount
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "name": "Updated Bonus User",
+  "email": "updatedbonususer@example.com",
+  "password": "password123",
+  "phone": "+6281234567896"
+}
+
+### Expected: Should get updated bonus amount
+
+###
+# Transaction History Tests
+
+### 21. Check user's transaction history (should show welcome bonus transactions)
+GET {{baseUrl}}/wallet/transactions
+Authorization: Bearer {{userToken}}
+
+### Expected: Should show COUPON_REDEMPTION transactions for welcome bonuses
+
+### 22. Check specific transaction details
+GET {{baseUrl}}/wallet/transactions/TXMP-XXX
+Authorization: Bearer {{userToken}}
+
+###
+# Error Handling Tests
+
+### 23. Test duplicate registration (same email)
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "name": "Duplicate User",
+  "email": "testwelcome@example.com",
+  "password": "password123",
+  "phone": "+6281234567897"
+}
+
+### Expected: Should fail with "User with this email already exists"
+
+### 24. Test registration with invalid data
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "name": "",
+  "email": "invalid-email",
+  "password": "123"
+}
+
+### Expected: Should fail with validation errors
+
+###
+# Cleanup Tests
+
+### 25. Delete test welcome bonus coupons
+DELETE {{baseUrl}}/admin/coupons/EXPIRED_WELCOME
+Authorization: Bearer {{adminToken}}
+
+### 26. Reset welcome bonus coupons to original state
+PUT {{baseUrl}}/admin/coupons/WELCOME2025
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "creditAmount": 20000,
+  "maxUses": 1000,
+  "usedCount": 0,
+  "status": "ACTIVE"
+}
+
+### 27. Reset second welcome bonus
+PUT {{baseUrl}}/admin/coupons/NEWUSER5K
+Content-Type: {{contentType}}
+Authorization: Bearer {{adminToken}}
+
+{
+  "creditAmount": 5000,
+  "maxUses": 500,
+  "usedCount": 0,
+  "status": "ACTIVE"
+}
+
+###
+# Integration Tests
+
+### 28. Test complete user journey
+# Register → Check balance → Make subscription → Check balance
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "name": "Journey User",
+  "email": "journeyuser@example.com",
+  "password": "password123",
+  "phone": "+6281234567898"
+}
+
+### 29. Check wallet info after registration
+GET {{baseUrl}}/wallet/info
+Authorization: Bearer {{userToken}}
+
+### 30. Create subscription using welcome bonus credits
+POST {{baseUrl}}/subscriptions
+Content-Type: {{contentType}}
+Authorization: Bearer {{userToken}}
+
+{
+  "serviceId": "service-id-here",
+  "planId": "plan-id-here"
+}
+
+### Expected: Should use welcome bonus credits for subscription payment

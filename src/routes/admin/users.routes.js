@@ -18,10 +18,18 @@ router.post(
 );
 
 // GET /api/admin/users - Get all users with pagination and filters
-router.get("/", userController.getAllUsers);
+router.get(
+  "/",
+  validate(userValidation.getAllUsers),
+  userController.getAllUsers
+);
 
 // GET /api/admin/users/:id - Get user by ID
-router.get("/:id", userController.getUserById);
+router.get(
+  "/:id",
+  validate(userValidation.getUserById),
+  userController.getUserById
+);
 
 // PUT /api/admin/users/:id - Update user
 router.put(
@@ -31,12 +39,16 @@ router.put(
 );
 
 // DELETE /api/admin/users/:id - Delete user
-router.delete("/:id", userController.deleteUser);
+router.delete(
+  "/:id",
+  validate(userValidation.deleteUser),
+  userController.deleteUser
+);
 
 // PATCH /api/admin/users/:id/status - Toggle user active status
 router.patch(
   "/:id/status",
-  validate(userValidation.toggleStatus),
+  validate(userValidation.toggleUserStatus),
   userController.toggleUserStatus
 );
 

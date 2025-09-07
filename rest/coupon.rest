@@ -1,0 +1,413 @@
+### Coupon System Testing
+### Base URL: http://localhost:3000/api
+
+### Variables
+@baseUrl = http://localhost:3000/api
+@userToken = {{login_response.response.body.data.accessToken}}
+@adminToken = {{admin_login_response.response.body.data.accessToken}}
+
+### ============================================================================
+### AUTHENTICATION SETUP
+### ============================================================================
+
+### User Login
+# @name login_response
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "user2@minispod.com",
+  "password": "password123"
+}
+
+### Admin Login
+# @name admin_login_response
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@minispod.com",
+  "password": "password123"
+}
+
+### ============================================================================
+### USER COUPON OPERATIONS (Billing Page)
+### ============================================================================
+
+### 1. Validate Credit Top-up Coupon
+POST {{baseUrl}}/wallet/validate-coupon
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "couponCode": "WELCOME50K"
+}
+
+### 2. Redeem Credit Top-up Coupon (Billing Page)
+POST {{baseUrl}}/wallet/redeem-coupon
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "couponCode": "WELCOME20K"
+}
+
+### 3. Try to Redeem Same Coupon Again (Should Fail)
+POST {{baseUrl}}/wallet/redeem-coupon
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "couponCode": "TEST1"
+}
+
+### 4. Validate Subscription Discount Coupon
+POST {{baseUrl}}/wallet/validate-coupon
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "couponCode": "SAVE20",
+  "subscriptionAmount": 100000
+}
+
+### 5. Try to Redeem Subscription Discount Coupon in Billing (Should Fail)
+POST {{baseUrl}}/wallet/redeem-coupon
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "couponCode": "SAVE20"
+}
+
+### 6. Get User Coupon Redemption History
+GET {{baseUrl}}/wallet/coupon-history?page=1&limit=10
+Authorization: Bearer {{userToken}}
+
+### 7. Get User Coupon History with Type Filter
+GET {{baseUrl}}/wallet/coupon-history?type=CREDIT_TOPUP&page=1&limit=10
+Authorization: Bearer {{userToken}}
+
+### ============================================================================
+### SUBSCRIPTION WITH COUPONS (Checkout Page)
+### ============================================================================
+
+### 8. Create Subscription with Discount Coupon
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "planId": "plan_basic_n8n",
+  "couponCode": "SAVE20"
+}
+
+### 9. Create Subscription with Free Service Coupon
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "planId": "plan_free_ghost",
+  "couponCode": "FREEGHOST"
+}
+
+### 10. Try to Use Credit Top-up Coupon in Subscription (Should Fail)
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "planId": "plan_basic_n8n",
+  "couponCode": "WELCOME50K"
+}
+
+### 11. Validate Subscription Creation without Coupon
+POST {{baseUrl}}/subscriptions/validate
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "planId": "plan_basic_n8n"
+}
+
+### ============================================================================
+### ADMIN COUPON MANAGEMENT
+### ============================================================================
+
+### 12. Create Credit Top-up Coupon
+POST {{baseUrl}}/admin/coupons
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "code": "WELCOME20K",
+  "name": "Welcome Bonus 50K",
+  "description": "50,000 IDR credit for new users",
+  "type": "CREDIT_TOPUP",
+  "creditAmount": 20000,
+  "maxUses": 100,
+  "maxUsesPerUser": 1,
+  "validFrom":"",
+  "validUntil": "2025-09-30T19:39:23.760Z"
+}
+
+### 13. Create Fixed Amount Discount Coupon
+POST {{baseUrl}}/admin/coupons
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "code": "SAVE20K",
+  "name": "Save 20K",
+  "description": "20,000 IDR discount on any subscription",
+  "type": "SUBSCRIPTION_DISCOUNT",
+  "discountType": "FIXED_AMOUNT",
+  "creditAmount": 20000,
+  "maxUses": 50,
+  "maxUsesPerUser": 1,
+    "validFrom":"",
+  "validUntil": "2025-09-30T19:39:23.760Z"
+}
+
+### 14. Create Percentage Discount Coupon
+POST {{baseUrl}}/admin/coupons
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "code": "SAVE20",
+  "name": "Save 20%",
+  "description": "20% discount on any subscription",
+  "type": "SUBSCRIPTION_DISCOUNT",
+  "discountType": "PERCENTAGE",
+  "discountPercent": 20,
+  "maxUses": 100,
+  "maxUsesPerUser": 1,
+    "validFrom":"",
+  "validUntil": "2024-12-31T23:59:59.000Z"
+}
+
+### 15. Create Free Service Coupon
+POST {{baseUrl}}/admin/coupons
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "code": "FREEGHOST",
+  "name": "Free Ghost Blog",
+  "description": "Free Ghost blog service for 1 month",
+  "type": "FREE_SERVICE",
+  "serviceId": "service_ghost_blog",
+  "maxUses": 20,
+  "maxUsesPerUser": 1,
+  "validUntil": "2024-12-31T23:59:59.000Z"
+}
+
+### 16. Create Service-Specific Discount Coupon
+POST {{baseUrl}}/admin/coupons
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "code": "N8NSAVE30",
+  "name": "N8N 30% Off",
+  "description": "30% discount on N8N automation service",
+  "type": "SUBSCRIPTION_DISCOUNT",
+  "discountType": "PERCENTAGE",
+  "discountPercent": 30,
+  "serviceId": "service_n8n_automation",
+  "planType": "PRO",
+  "maxUses": 25,
+  "maxUsesPerUser": 1,
+  "validUntil": "2024-12-31T23:59:59.000Z"
+}
+
+### 17. List All Coupons
+GET {{baseUrl}}/admin/coupons?page=1&limit=20
+Authorization: Bearer {{adminToken}}
+
+### 18. List Coupons with Filters
+GET {{baseUrl}}/admin/coupons?status=ACTIVE&type=CREDIT_TOPUP&page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### 19. Search Coupons
+GET {{baseUrl}}/admin/coupons?search=WELCOME&page=1&limit=10
+Authorization: Bearer {{adminToken}}
+
+### 20. Get Coupon Details
+GET {{baseUrl}}/admin/coupons/{{coupon_id}}
+Authorization: Bearer {{adminToken}}
+
+### 21. Update Coupon
+PUT {{baseUrl}}/admin/coupons/{{coupon_id}}
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "name": "Updated Welcome Bonus",
+  "description": "Updated description for welcome bonus",
+  "maxUses": 200,
+  "status": "ACTIVE"
+}
+
+### 22. Get Coupon Statistics
+GET {{baseUrl}}/admin/coupons/statistics?period=month
+Authorization: Bearer {{adminToken}}
+
+### 23. Get Weekly Coupon Statistics
+GET {{baseUrl}}/admin/coupons/statistics?period=week
+Authorization: Bearer {{adminToken}}
+
+### 24. Bulk Update Coupon Status
+PUT {{baseUrl}}/admin/coupons/bulk-status
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "couponIds": ["coupon_id_1", "coupon_id_2"],
+  "status": "DISABLED"
+}
+
+### 25. Try to Delete Coupon with Redemptions (Should Fail)
+DELETE {{baseUrl}}/admin/coupons/{{used_coupon_id}}
+Authorization: Bearer {{adminToken}}
+
+### 26. Delete Unused Coupon
+DELETE {{baseUrl}}/admin/coupons/{{unused_coupon_id}}
+Authorization: Bearer {{adminToken}}
+
+### ============================================================================
+### ERROR SCENARIOS
+### ============================================================================
+
+### 27. Try to Create Coupon with Duplicate Code
+POST {{baseUrl}}/admin/coupons
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "code": "WELCOME50K",
+  "name": "Duplicate Code Test",
+  "type": "CREDIT_TOPUP",
+  "creditAmount": 25000,
+  "maxUses": 10
+}
+
+### 28. Try to Create Invalid Coupon (Missing Required Fields)
+POST {{baseUrl}}/admin/coupons
+Authorization: Bearer {{adminToken}}
+Content-Type: application/json
+
+{
+  "code": "INVALID",
+  "name": "Invalid Coupon",
+  "type": "CREDIT_TOPUP"
+}
+
+### 29. Try to Validate Non-existent Coupon
+POST {{baseUrl}}/wallet/validate-coupon
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "couponCode": "NONEXISTENT"
+}
+
+### 30. Try to Redeem Expired Coupon
+POST {{baseUrl}}/wallet/redeem-coupon
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "couponCode": "EXPIRED2023"
+}
+
+### 31. Try to Use Service-Specific Coupon on Wrong Service
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "planId": "plan_basic_ghost",
+  "couponCode": "N8NSAVE30"
+}
+
+### 32. Try to Access Admin Endpoints as User (Should Fail)
+GET {{baseUrl}}/admin/coupons
+Authorization: Bearer {{userToken}}
+
+### ============================================================================
+### INTEGRATION TESTS
+### ============================================================================
+
+### 33. Complete Credit Top-up Flow
+# Step 1: Validate coupon
+POST {{baseUrl}}/wallet/validate-coupon
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "couponCode": "NEWUSER25K"
+}
+
+### Step 2: Check wallet balance before
+GET {{baseUrl}}/wallet/info
+Authorization: Bearer {{userToken}}
+
+### Step 3: Redeem coupon
+POST {{baseUrl}}/wallet/redeem-coupon
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "couponCode": "NEWUSER25K"
+}
+
+### Step 4: Check wallet balance after
+GET {{baseUrl}}/wallet/info
+Authorization: Bearer {{userToken}}
+
+### 34. Complete Subscription with Discount Flow
+# Step 1: Validate discount coupon
+POST {{baseUrl}}/wallet/validate-coupon
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "couponCode": "FIRSTSUB10",
+  "subscriptionAmount": 75000
+}
+
+### Step 2: Create subscription with discount
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "planId": "plan_pro_n8n",
+  "couponCode": "FIRSTSUB10"
+}
+
+### Step 3: Check subscription details
+GET {{baseUrl}}/subscriptions
+Authorization: Bearer {{userToken}}
+
+### 35. Complete Free Service Flow
+# Step 1: Redeem free service coupon
+POST {{baseUrl}}/subscriptions
+Authorization: Bearer {{userToken}}
+Content-Type: application/json
+
+{
+  "planId": "plan_basic_ghost",
+  "couponCode": "FREEGHOST2024"
+}
+
+### Step 2: Verify service instance created
+GET {{baseUrl}}/instances
+Authorization: Bearer {{userToken}}
+
+### Step 3: Check coupon redemption history
+GET {{baseUrl}}/wallet/coupon-history?type=FREE_SERVICE
+Authorization: Bearer {{userToken}}

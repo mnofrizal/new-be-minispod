@@ -138,11 +138,18 @@ const adminSubscriptionValidation = {
         "number.max": "Limit cannot exceed 100",
       }),
       status: Joi.string()
-        .valid("ACTIVE", "CANCELLED", "PENDING_PAYMENT", "PENDING_UPGRADE")
+        .valid(
+          "ACTIVE",
+          "SUSPENDED",
+          "CANCELLED",
+          "EXPIRED",
+          "PENDING_PAYMENT",
+          "PENDING_UPGRADE"
+        )
         .messages({
           "string.base": "Status must be a string",
           "any.only":
-            "Status must be one of: ACTIVE, CANCELLED, PENDING_PAYMENT, PENDING_UPGRADE",
+            "Status must be one of: ACTIVE, SUSPENDED, CANCELLED, EXPIRED, PENDING_PAYMENT, PENDING_UPGRADE",
         }),
       serviceId: Joi.string().messages({
         "string.base": "Service ID must be a string",
@@ -226,6 +233,91 @@ const adminSubscriptionValidation = {
         "boolean.base": "Terminate instances must be a boolean value",
       }),
     }),
+  },
+
+  /**
+   * Validation for update subscription (admin free edit)
+   */
+  updateSubscription: {
+    params: Joi.object({
+      subscriptionId: Joi.string().required().messages({
+        "string.empty": "Subscription ID is required",
+        "any.required": "Subscription ID is required",
+      }),
+    }),
+    body: Joi.object({
+      status: Joi.string()
+        .valid(
+          "ACTIVE",
+          "SUSPENDED",
+          "CANCELLED",
+          "EXPIRED",
+          "PENDING_UPGRADE",
+          "PENDING_PAYMENT"
+        )
+        .optional()
+        .messages({
+          "string.base": "Status must be a string",
+          "any.only":
+            "Status must be one of: ACTIVE, SUSPENDED, CANCELLED, EXPIRED, PENDING_UPGRADE, PENDING_PAYMENT",
+        }),
+      startDate: Joi.date().iso().optional().messages({
+        "date.base": "Start date must be a valid date",
+        "date.format": "Start date must be in ISO format",
+      }),
+      endDate: Joi.date().iso().optional().messages({
+        "date.base": "End date must be a valid date",
+        "date.format": "End date must be in ISO format",
+      }),
+      nextBilling: Joi.date().iso().allow(null).optional().messages({
+        "date.base": "Next billing must be a valid date",
+        "date.format": "Next billing must be in ISO format",
+      }),
+      lastBilled: Joi.date().iso().allow(null).optional().messages({
+        "date.base": "Last billed must be a valid date",
+        "date.format": "Last billed must be in ISO format",
+      }),
+      monthlyPrice: Joi.number()
+        .integer()
+        .min(0)
+        .max(10000000)
+        .optional()
+        .messages({
+          "number.base": "Monthly price must be a number",
+          "number.integer": "Monthly price must be an integer",
+          "number.min": "Monthly price cannot be negative",
+          "number.max": "Monthly price cannot exceed Rp 10,000,000",
+        }),
+      lastChargeAmount: Joi.number()
+        .integer()
+        .min(0)
+        .max(10000000)
+        .allow(null)
+        .optional()
+        .messages({
+          "number.base": "Last charge amount must be a number",
+          "number.integer": "Last charge amount must be an integer",
+          "number.min": "Last charge amount cannot be negative",
+          "number.max": "Last charge amount cannot exceed Rp 10,000,000",
+        }),
+      failedCharges: Joi.number().integer().min(0).max(10).optional().messages({
+        "number.base": "Failed charges must be a number",
+        "number.integer": "Failed charges must be an integer",
+        "number.min": "Failed charges cannot be negative",
+        "number.max": "Failed charges cannot exceed 10",
+      }),
+      autoRenew: Joi.boolean().optional().messages({
+        "boolean.base": "Auto-renew must be a boolean value",
+      }),
+      gracePeriodEnd: Joi.date().iso().allow(null).optional().messages({
+        "date.base": "Grace period end must be a valid date",
+        "date.format": "Grace period end must be in ISO format",
+      }),
+    })
+      .min(1)
+      .messages({
+        "object.min": "At least one field must be provided for update",
+      }),
   },
 };
 

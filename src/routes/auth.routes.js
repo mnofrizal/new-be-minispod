@@ -19,9 +19,34 @@ router.post(
   authController.refreshToken
 );
 
+// Google OAuth routes
+router.post(
+  "/google/login",
+  validate(authValidation.googleLogin),
+  authController.googleLogin
+);
+
 // Protected routes
 router.get("/profile", authenticateToken, authController.getProfile);
-router.post("/logout", authenticateToken, authController.logout);
+router.post(
+  "/logout",
+  authenticateToken,
+  validate(authValidation.logout),
+  authController.logout
+);
 router.post("/logout-all", authenticateToken, authController.logoutAll);
+
+// Google OAuth protected routes
+router.post(
+  "/google/link",
+  authenticateToken,
+  validate(authValidation.linkGoogleAccount),
+  authController.linkGoogleAccount
+);
+router.post(
+  "/google/unlink",
+  authenticateToken,
+  authController.unlinkGoogleAccount
+);
 
 export default router;
